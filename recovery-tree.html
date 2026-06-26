@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Recovery Tree · Presentations.AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0C0D10; --surface:#15171D; --surface-2:#1B1E26; --surface-3:#22262F;
+    --line:#2A2F3A; --line-bright:#3A414F; --ink:#ECEEF2; --ink-2:#9AA1AE; --ink-3:#646B79;
+    --blocked:#FFB454; --satisfied:#34D399; --unconvinced:#60A5FA; --friction:#A78BFA; --price:#F472B6;
+    --win:#34D399; --route:#67E8F9;
+    --sans:'Space Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:
+      radial-gradient(1100px 560px at 88% -12%,rgba(96,165,250,.06),transparent 60%),
+      radial-gradient(820px 480px at -8% 112%,rgba(167,139,250,.05),transparent 60%),var(--bg);
+    color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;
+    padding:30px clamp(16px,4vw,44px) 64px}
+  .wrap{max-width:880px;margin:0 auto}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+  h1{font-size:clamp(25px,4vw,36px);font-weight:600;letter-spacing:-.02em;margin:0 0 8px}
+  .sub{color:var(--ink-2);max-width:64ch;font-size:15px}
+  .sub b{color:var(--ink)}
+  .restart{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--ink-3);background:none;border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer;transition:.15s}
+  .restart:hover{color:var(--ink);border-color:var(--line-bright)}
+
+  /* tree */
+  .tree{margin-top:26px;position:relative}
+  .level{position:relative;padding:0 0 4px 30px;margin-bottom:18px}
+  .level::before{content:"";position:absolute;left:6px;top:6px;width:11px;height:11px;border-radius:50%;
+    background:var(--surface-3);border:2px solid var(--line-bright);z-index:2}
+  .level.done::before{background:var(--ac,var(--route));border-color:var(--ac,var(--route))}
+  .level.active::before{background:var(--bg);border-color:var(--route);box-shadow:0 0 0 4px rgba(103,232,249,.12)}
+  /* connecting spine */
+  .level::after{content:"";position:absolute;left:11px;top:17px;bottom:-18px;width:2px;background:var(--line)}
+  .level.done::after{background:linear-gradient(var(--ac,var(--route)),var(--line))}
+  .level:last-of-type::after{display:none}
+  .q-label{font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+  .level.active .q-label{color:var(--route)}
+  .q-text{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:12px;letter-spacing:-.01em}
+  .level.done .q-text{font-size:13.5px;font-weight:500;color:var(--ink-2);margin-bottom:9px}
+
+  .branches{display:flex;flex-wrap:wrap;gap:8px}
+  .branch{font-family:inherit;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--line);
+    border-radius:11px;padding:10px 13px;color:var(--ink-2);transition:transform .14s cubic-bezier(.2,.8,.2,1),border-color .15s,background .15s,opacity .2s;min-width:0}
+  .branch:hover{transform:translateY(-1px);border-color:var(--line-bright);color:var(--ink)}
+  .branch:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+  .branch .b-t{font-size:13.5px;font-weight:600;color:inherit;line-height:1.25}
+  .branch .b-s{font-size:11px;font-family:var(--mono);color:var(--ink-3);margin-top:3px}
+  .branch.chosen{border-color:var(--ac,var(--route));background:color-mix(in oklch,var(--ac,var(--route)) 11%,var(--surface));color:var(--ink);
+    box-shadow:0 0 0 1px var(--ac,var(--route)),0 12px 30px -22px var(--ac,var(--route))}
+  .branch.chosen .b-t{color:var(--ink)}
+  .level.done .branch:not(.chosen){opacity:.32;padding:7px 11px}
+  .level.done .branch:not(.chosen) .b-t{font-size:12px;font-weight:500}
+  .level.done .branch:not(.chosen) .b-s{display:none}
+  .level.done .branch:not(.chosen):hover{opacity:.7}
+  .prio{display:inline-block;font-size:9px;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase;
+    color:var(--blocked);border:1px solid color-mix(in oklch,var(--blocked) 45%,transparent);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+
+  /* result */
+  .result{margin-top:22px;margin-left:30px;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden;
+    animation:rise .35s cubic-bezier(.2,.8,.2,1)}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .r-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:15px 18px;border-bottom:1px solid var(--line);
+    background:color-mix(in oklch,var(--ac) 7%,var(--surface))}
+  .r-arch{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ac);
+    border:1px solid color-mix(in oklch,var(--ac) 42%,transparent);background:color-mix(in oklch,var(--ac) 14%,transparent);
+    border-radius:999px;padding:5px 12px}
+  .r-arch .d{width:8px;height:8px;border-radius:50%;background:var(--ac)}
+  .r-out{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;padding:4px 9px;border-radius:6px;
+    border:1px solid var(--line-bright);color:var(--ink-2)}
+  .r-out.product{color:var(--blocked);border-color:color-mix(in oklch,var(--blocked) 45%,transparent);background:color-mix(in oklch,var(--blocked) 10%,transparent)}
+  .r-out.hold{color:var(--ink-3)}
+  .r-out.urgent{color:var(--price);border-color:color-mix(in oklch,var(--price) 45%,transparent);background:color-mix(in oklch,var(--price) 10%,transparent)}
+  .r-code{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .r-body{padding:17px 18px}
+  .r-l{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
+  .r-send{font-size:18px;font-weight:600;color:var(--ink);letter-spacing:-.01em;line-height:1.35}
+  .r-why{font-size:13.5px;color:var(--ink-2);margin-top:9px;line-height:1.55;max-width:62ch}
+  .r-meta{display:flex;gap:26px;flex-wrap:wrap;margin-top:17px;padding-top:15px;border-top:1px solid var(--line)}
+  .r-meta>div{font-size:13px;color:var(--ink)}
+  .r-meta .ml{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:4px}
+  .r-meta b{font-weight:500}
+  .r-meta .g{color:var(--win)}
+  .r-rules{margin-top:14px;font-size:11.5px;font-family:var(--mono);color:var(--ink-3);line-height:1.7}
+  .r-rules b{color:var(--ink-2);font-weight:500}
+
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:16px;color:var(--ink-3);font-size:12px;line-height:1.7}
+  footer b{color:var(--ink-2);font-weight:500}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Presentations.AI · recovery tree</div>
+  <h1>Which email to trigger</h1>
+  <p class="sub">Walk the branches: <b>the last funnel stage they reached</b>, then <b>what they actually did</b>. The path lights up as you go, and the leaf tells you, directionally, <b>what to send</b> and when. Stages match the signup → payment dashboard.</p>
+  <button class="restart" id="restart" hidden>↺ start over</button>
+
+  <div class="tree" id="tree"></div>
+
+  <footer>
+    <div><b>The funnel:</b> Signup → Role pick → Doc init → Doc start → Outline generated → Editor loaded → Deck loaded → Changed slide → Payment start → Checkout → Payment success.</div>
+    <div><b>How it routes:</b> first branch that fits wins (order is priority). Hard signals for now. Mechanical drops also raise a product flag, not just an email.</div>
+    <div><b>Always on top:</b> frequency cap + opt-out + quiet hours can veto any send. Urgent (broke / payment failed) skips quiet hours. Every email carries a campaign_id so we know who came back through it.</div>
+  </footer>
+</div>
+
+<script>
+/* ---- archetypes ---- */
+const ARCH={
+  blocked:'Something broke', satisfied:'Happy, just done', unconvinced:'Not sold yet',
+  friction:'Stuck, wanted in', price:'Balked at price'
+};
+
+/* ---- the tree (one drop per real funnel stage) ----
+   q  node: {label, q, options:[{t, s?, prio?, to}]}
+   leaf:    {leaf:true, a, send, why, when, back, out:'email'|'product'|'hold', urgent?, prio?}      */
+const T={
+  root:{label:'how far did they get in the funnel?', q:'How far did they get? (last stage reached)', options:[
+    {t:'Signed up, no role pick',s:'Signup → Role pick',to:'f1'},
+    {t:'Role picked, no doc',s:'Role pick → Doc init',to:'f2'},
+    {t:'Doc created, never started',s:'Doc init → Doc start',to:'f3'},
+    {t:'Started, no outline',s:'Doc start → Outline generated',to:'f4'},
+    {t:'Outline made, no editor',s:'Outline generated → Editor loaded',to:'f5'},
+    {t:'Editor loaded, no deck',s:'Editor loaded → Deck loaded',to:'f6'},
+    {t:'Deck loaded, never edited',s:'Deck loaded → Changed slide',to:'f7'},
+    {t:'Edited, no payment',s:'Changed slide → Payment start',to:'f8'},
+    {t:'Payment started, no checkout',s:'Payment start → Checkout',prio:true,to:'f9'},
+    {t:'At checkout, didn’t pay',s:'Checkout → Payment success',prio:true,to:'f10'}
+  ]},
+
+  /* F1 · Signup → Role pick */
+  f1:{label:'Signup → Role pick', q:'What happened after they signed up?', options:[
+    {t:'Bounced right after signup',to:'L_f1a'},
+    {t:'Opened role pick, didn’t choose',to:'L_f1b'},
+    {t:'Role pick errored / stuck',to:'L_f1c'}
+  ]},
+  L_f1a:{leaf:true,a:'unconvinced',send:'A short welcome: what they can make in a minute. Once, then stop.',why:'Barely engaged. Show value lightly, don’t chase.',when:'once at +1d',back:'Role pick',out:'hold'},
+  L_f1b:{leaf:true,a:'friction',send:'“Pick your role, it takes a second.” Offer a sensible default.',why:'They started setup but stalled at the choice. Lower the bar.',when:'now → +3h, then stop',back:'Role pick',out:'email'},
+  L_f1c:{leaf:true,a:'blocked',send:'“Sorry, let’s get you in.” + a direct link past role pick.',why:'Setup broke. Fix it, don’t sell. Raise a product flag.',when:'now, within minutes',back:'Role pick',out:'product',urgent:true},
+
+  /* F2 · Role pick → Doc init */
+  f2:{label:'Role pick → Doc init', q:'After picking a role, what did they do?', options:[
+    {t:'Never created a doc',to:'L_f2a'},
+    {t:'Looked around, left',to:'L_f2b'},
+    {t:'Hit an error creating a doc',to:'L_f2c'}
+  ]},
+  L_f2a:{leaf:true,a:'friction',send:'“Start your first doc.” + a few role-based templates.',why:'They’re set up but haven’t begun. Remove the cold start.',when:'now → +1d, then stop',back:'Doc init',out:'email'},
+  L_f2b:{leaf:true,a:'unconvinced',send:'A quick example built for their role. Light touch.',why:'Not sold yet. Show what good looks like for them.',when:'+1d once',back:'Doc init',out:'hold'},
+  L_f2c:{leaf:true,a:'blocked',send:'“Here’s a clean way in.” + a retry link.',why:'Doc creation broke. Fix it, flag for product.',when:'now, within minutes',back:'Doc init',out:'product',urgent:true},
+
+  /* F3 · Doc init → Doc start */
+  f3:{label:'Doc init → Doc start', q:'What did they do with the doc?', options:[
+    {t:'Started typing, then quit',to:'L_f3a'},
+    {t:'Created it, never typed',to:'L_f3b'},
+    {t:'Left right away',to:'L_f3c'}
+  ]},
+  L_f3a:{leaf:true,a:'friction',send:'“Pick up where you left off.” Help finish the prompt.',why:'They were trying. Best shot this early.',when:'now → +3h, then stop',back:'Doc start',out:'email'},
+  L_f3b:{leaf:true,a:'friction',send:'“Here are a few ready-made prompts.”',why:'Blank-page freeze. Remove the cold start.',when:'+2h → +1d, then stop',back:'Doc start',out:'email'},
+  L_f3c:{leaf:true,a:'unconvinced',send:'One 60-second demo, then leave them alone.',why:'Barely engaged. A single light touch is plenty.',when:'once at +1d',back:'Doc start',out:'hold'},
+
+  /* F4 · Doc start → Outline generated */
+  f4:{label:'Doc start → Outline generated', q:'What happened generating the outline?', options:[
+    {t:'It errored / failed',to:'L_f4a'},
+    {t:'Too slow / timed out',to:'L_f4b'},
+    {t:'Gave up partway',to:'L_f4c'}
+  ]},
+  L_f4a:{leaf:true,a:'blocked',send:'“Sorry, here it is now.” + a retry link.',why:'Generation failed, not their fault. Fix fast, flag product.',when:'now, within minutes',back:'Outline generated',out:'product',urgent:true},
+  L_f4b:{leaf:true,a:'blocked',send:'“Your outline’s ready.” Faster path / notify when done.',why:'Slow generation lost them. Band-aid email, flag product.',when:'+1h, then stop',back:'Outline generated',out:'product'},
+  L_f4c:{leaf:true,a:'friction',send:'“Your outline’s ready, come see it.”',why:'They drifted while waiting. Pull them back.',when:'now → +3h, then stop',back:'Outline generated',out:'email'},
+
+  /* F5 · Outline generated → Editor loaded */
+  f5:{label:'Outline generated → Editor loaded', q:'What happened loading the editor?', options:[
+    {t:'Editor errored / didn’t load',to:'L_f5a'},
+    {t:'Too slow, they left',to:'L_f5b'},
+    {t:'Saw the outline, didn’t open editor',to:'L_f5c'}
+  ]},
+  L_f5a:{leaf:true,a:'blocked',send:'“Let’s get your editor open.” + a retry link.',why:'Editor failed to load. Fix it, flag product.',when:'now, within minutes',back:'Editor loaded',out:'product',urgent:true},
+  L_f5b:{leaf:true,a:'blocked',send:'Offer a faster path, or finish on desktop.',why:'Slow load lost them. Band-aid email, flag product.',when:'+1h, then stop',back:'Editor loaded',out:'product'},
+  L_f5c:{leaf:true,a:'unconvinced',send:'“Open the editor, your deck’s a click away.”',why:'They liked the outline but didn’t go further. Nudge them in.',when:'+3h → +1d, then stop',back:'Editor loaded',out:'email'},
+
+  /* F6 · Editor loaded → Deck loaded */
+  f6:{label:'Editor loaded → Deck loaded', q:'What happened loading the deck?', options:[
+    {t:'Deck failed to render',to:'L_f6a'},
+    {t:'Too slow on their phone',to:'L_f6b'},
+    {t:'Gave up waiting',to:'L_f6c'}
+  ]},
+  L_f6a:{leaf:true,a:'blocked',send:'“Here it is now.” + a retry link.',why:'Deck failed to render. Fix it, flag product.',when:'now, within minutes',back:'Deck loaded',out:'product',urgent:true},
+  L_f6b:{leaf:true,a:'blocked',send:'Nudge to desktop, or a faster path.',why:'Mobile rendering friction. Band-aid email, flag product.',when:'+1h, then stop',back:'Deck loaded',out:'product'},
+  L_f6c:{leaf:true,a:'friction',send:'“Your deck’s ready, come see it.”',why:'They drifted while it loaded. Pull them back.',when:'now → +3h, then stop',back:'Deck loaded',out:'email'},
+
+  /* F7 · Deck loaded → Changed slide */
+  f7:{label:'Deck loaded → Changed slide', q:'What did they do with the loaded deck?', options:[
+    {t:'Used up both free decks',to:'L_f7a'},
+    {t:'Looked, didn’t edit it',to:'L_f7b'},
+    {t:'Glanced and left fast',to:'L_f7c'},
+    {t:'Kept regenerating it',to:'L_f7d'}
+  ]},
+  L_f7a:{leaf:true,a:'satisfied',send:'“You’ve made 2 great decks, go unlimited.”',why:'Out of free decks and getting value. Easiest sell you have.',when:'+2h → +1d, then stop',back:'Payment start',out:'email'},
+  L_f7b:{leaf:true,a:'satisfied',send:'“Make it yours, change a slide.”',why:'They got a deck but didn’t engage. Get them to invest a little.',when:'+3h → +1d, then stop',back:'Changed slide',out:'email'},
+  L_f7c:{leaf:true,a:'unconvinced',send:'“Come back and pick up your deck.”',why:'Quick glance, low intent. Light pull-back.',when:'+1d once',back:'Changed slide',out:'hold'},
+  L_f7d:{leaf:true,a:'unconvinced',send:'“We’ve made it better,” sharper prompt / Pro writing.',why:'The result wasn’t good enough for them. Don’t oversell.',when:'+1d, then stop',back:'Deck loaded',out:'email'},
+
+  /* F8 · Changed slide → Payment start */
+  f8:{label:'Changed slide → Payment start', q:'They edited the deck, then what stopped them?', options:[
+    {t:'Polished it, just left',to:'L_f8a'},
+    {t:'Used up both free decks',to:'L_f8b'},
+    {t:'Didn’t see why to upgrade',to:'L_f8c'}
+  ]},
+  L_f8a:{leaf:true,a:'satisfied',send:'“Your deck’s ready, get it out.” Publish / export it.',why:'Strongest non-price signal. They invested (Changed slide). Export is Pro, so push it.',when:'now → +1d, then stop',back:'Payment start',out:'email'},
+  L_f8b:{leaf:true,a:'satisfied',send:'“You’ve made 2 great decks, go unlimited.”',why:'Invested and out of free decks. Clean sell.',when:'+2h → +1d, then stop',back:'Payment start',out:'email'},
+  L_f8c:{leaf:true,a:'unconvinced',send:'Lead with what Pro does, not the price.',why:'They worked on it but don’t see the upgrade value yet.',when:'+1d, then stop',back:'Payment start',out:'email'},
+
+  /* F9 · Payment start → Checkout (biggest leak) */
+  f9:{label:'Payment start → Checkout', q:'What triggered Payment start?', options:[
+    {t:'Tried to export',to:'f9exp'},
+    {t:'Clicked upgrade',to:'L_f9upg'},
+    {t:'Hit a locked feature',to:'L_f9gate'}
+  ]},
+  f9exp:{label:'Payment start → Checkout · they tried to export', q:'On phone or desktop?', options:[
+    {t:'Phone',to:'L_f9mob'},
+    {t:'Desktop',to:'L_f9best'}
+  ]},
+  L_f9mob:{leaf:true,a:'blocked',prio:true,send:'Direct checkout link (or nudge to desktop).',why:'Mobile checkout collapses to ~1 in 10. Email is a band-aid, the real fix is product. Flag it.',when:'now, urgent',back:'Checkout',out:'product',urgent:true},
+  L_f9best:{leaf:true,a:'price',prio:true,send:'“You’re one click away.” Value reframe, maybe a deal.',why:'Your single best email. They were about to export and saw the price.',when:'now → +3h → +1d, then stop',back:'Checkout',out:'email'},
+  L_f9upg:{leaf:true,a:'price',prio:true,send:'Answer doubts, clarify the plans, a small nudge.',why:'They’re weighing it. Make the choice easy.',when:'+3h → +1d, then stop',back:'Checkout',out:'email'},
+  L_f9gate:{leaf:true,a:'unconvinced',prio:true,send:'Light touch: show what Pro unlocks, or nothing.',why:'They just bumped a wall, weren’t really trying to buy.',when:'+1d once, or skip',back:'Payment start',out:'hold'},
+
+  /* F10 · Checkout → Payment success (biggest leak) */
+  f10:{label:'Checkout → Payment success', q:'What happened at checkout?', options:[
+    {t:'Payment failed',to:'L_f10dec'},
+    {t:'They just left',to:'f10b'}
+  ]},
+  L_f10dec:{leaf:true,a:'blocked',prio:true,send:'“Try again,” + another way to pay.',why:'Not a “no”, the payment broke. Many are winnable. Flag payment for product.',when:'now, within minutes',back:'Payment success',out:'product',urgent:true},
+  f10b:{label:'Checkout → Payment success · they left checkout', q:'Did they type card details?', options:[
+    {t:'Yes',to:'L_f10cold'},
+    {t:'No',to:'L_f10stk'}
+  ]},
+  L_f10cold:{leaf:true,a:'price',prio:true,send:'Reassure: money-back, secure. Then a gentle nudge.',why:'Cold feet at the last second.',when:'now → +3h, then stop',back:'Payment success',out:'email'},
+  L_f10stk:{leaf:true,a:'price',prio:true,send:'Remind the value, maybe a targeted offer.',why:'Sticker shock at the final price.',when:'+3h → +1d, then stop',back:'Payment success',out:'email'}
+};
+
+const OUT={
+  email:{t:'Email'}, product:{t:'Email + product flag'}, hold:{t:'Hold · maybe send nothing'}
+};
+
+/* ---- state ---- */
+let path=[]; // [{nodeId, idx}]
+const tree=document.getElementById('tree');
+const restart=document.getElementById('restart');
+
+function choose(level, idx){ path=path.slice(0,level); path.push({nodeId:nodeAtLevel(level), idx}); render(); }
+function nodeAtLevel(level){
+  let id='root';
+  for(let i=0;i<level;i++){ id=T[id].options[path[i].idx].to; }
+  return id;
+}
+
+function render(){
+  tree.innerHTML='';
+  let id='root', level=0, leaf=null;
+  while(true){
+    const node=T[id];
+    if(node.leaf){ leaf=node; break; }
+    const step=path[level];
+    const chosen = step? step.idx : null;
+    tree.appendChild(levelEl(node, level, chosen));
+    if(step==null) break;        // frontier: stop, wait for a choice
+    id=node.options[chosen].to; level++;
+  }
+  if(leaf) tree.appendChild(resultEl(leaf));
+  restart.hidden = path.length===0;
+}
+
+function levelEl(node, level, chosen){
+  const done = chosen!=null;
+  const el=document.createElement('div');
+  el.className='level'+(done?' done':' active');
+  if(done) el.style.setProperty('--ac', accentForChoice(node, chosen));
+  const opts=node.options.map((o,i)=>{
+    const isCh=i===chosen;
+    return `<button class="branch${isCh?' chosen':''}" data-level="${level}" data-idx="${i}"
+      ${isCh?`style="--ac:${accentForChoice(node,i)}"`:''}>
+      <div class="b-t">${o.t}${o.prio?'<span class="prio">biggest leak</span>':''}</div>
+      ${o.s?`<div class="b-s">${o.s}</div>`:''}
+    </button>`;
+  }).join('');
+  el.innerHTML=`<div class="q-label">${done?'you chose':'step '+(level+1)} · ${node.label}</div>
+    ${done?'':`<div class="q-text">${node.q}</div>`}
+    <div class="branches">${opts}</div>`;
+  el.querySelectorAll('.branch').forEach(b=>b.addEventListener('click',()=>choose(+b.dataset.level,+b.dataset.idx)));
+  return el;
+}
+
+/* accent of a chosen option = the archetype of where it leads (peek the leaf, else route cyan) */
+function accentForChoice(node, idx){
+  let id=node.options[idx].to, guard=0;
+  while(T[id]&&!T[id].leaf&&guard++<8){ id=T[id].options[0].to; }
+  const n=T[id];
+  return n&&n.leaf? `var(--${n.a})` : 'var(--route)';
+}
+
+function resultEl(leaf){
+  const el=document.createElement('div');
+  el.className='result';
+  el.style.setProperty('--ac', `var(--${leaf.a})`);
+  const outCls = leaf.urgent? 'urgent' : leaf.out;
+  const outTxt = leaf.urgent? 'Urgent · skips quiet hours' : OUT[leaf.out].t;
+  el.innerHTML=`
+    <div class="r-head">
+      <span class="r-arch"><span class="d"></span>${ARCH[leaf.a]}</span>
+      <span class="r-out ${outCls}">${outTxt}</span>
+      ${leaf.out==='product'?'<span class="r-out product">raises product flag</span>':''}
+      ${leaf.prio?'<span class="r-out">priority fork</span>':''}
+      <span class="r-code">leaf</span>
+    </div>
+    <div class="r-body">
+      <div class="r-l">trigger, directionally</div>
+      <div class="r-send">${leaf.send}</div>
+      <div class="r-why">${leaf.why}</div>
+      <div class="r-meta">
+        <div><span class="ml">when (tight, while hot)</span><b>${leaf.when}</b></div>
+        <div><span class="ml">if it lands</span><b class="g">↩ back to ${leaf.back}</b></div>
+        <div><span class="ml">if it doesn’t</span><b>a non-paying ending → its own fix</b></div>
+      </div>
+      <div class="r-rules">↳ still subject to: <b>frequency cap</b> · <b>opt-out</b> · <b>quiet hours</b>${leaf.urgent?' (skipped, this is urgent)':''} · tracked by <b>campaign_id</b></div>
+    </div>`;
+  return el;
+}
+
+render();
+</script>
+</body>
+</html>

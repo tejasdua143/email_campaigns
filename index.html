@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Email Campaigns · Presentations.AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0C0D10; --surface:#15171D; --surface-2:#1B1E26; --line:#2A2F3A; --line-bright:#3A414F;
+    --ink:#ECEEF2; --ink-2:#9AA1AE; --ink-3:#646B79; --route:#67E8F9; --win:#34D399;
+    --sans:'Space Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:
+      radial-gradient(1100px 560px at 88% -12%,rgba(96,165,250,.06),transparent 60%),
+      radial-gradient(820px 480px at -8% 112%,rgba(167,139,250,.05),transparent 60%),var(--bg);
+    color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;
+    padding:48px clamp(16px,4vw,44px) 64px}
+  .wrap{max-width:760px;margin:0 auto}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+  h1{font-size:clamp(26px,4vw,38px);font-weight:600;letter-spacing:-.02em;margin:0 0 10px}
+  .sub{color:var(--ink-2);max-width:62ch;font-size:15px;margin-bottom:34px}
+  a.card{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:14px;
+    background:var(--surface);padding:18px 20px;margin-bottom:12px;transition:transform .14s cubic-bezier(.2,.8,.2,1),border-color .15s,background .15s}
+  a.card:hover{transform:translateY(-2px);border-color:var(--line-bright);background:var(--surface-2)}
+  a.card.lead{border-color:color-mix(in oklch,var(--route) 45%,transparent);background:color-mix(in oklch,var(--route) 7%,var(--surface))}
+  .c-top{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+  .c-name{font-size:16px;font-weight:600}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--route);
+    border:1px solid color-mix(in oklch,var(--route) 42%,transparent);border-radius:5px;padding:2px 7px}
+  .arrow{margin-left:auto;color:var(--ink-3);font-family:var(--mono)}
+  .c-desc{font-size:13px;color:var(--ink-2);line-height:1.55}
+  footer{margin-top:30px;border-top:1px solid var(--line);padding-top:16px;color:var(--ink-3);font-size:12px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Presentations.AI · growth</div>
+  <h1>Email Campaigns</h1>
+  <p class="sub">Deciding which lifecycle / recovery email to send a user, based on where and why they dropped off in the signup → payment journey. Pick a view below. The recovery tree is the one to start with.</p>
+
+  <a class="card lead" href="recovery-tree.html">
+    <div class="c-top"><span class="c-name">Recovery Tree</span><span class="tag">start here</span><span class="arrow">→</span></div>
+    <div class="c-desc">Walk the funnel: the last stage someone reached, then what they did. It tells you, directionally, which email to trigger and when. One drop point per real funnel stage.</div>
+  </a>
+
+  <a class="card" href="journey-machine.html">
+    <div class="c-top"><span class="c-name">Journey Machine</span><span class="arrow">→</span></div>
+    <div class="c-desc">The whole thing as a state machine: the path to Paid, every fork where people drop, the losing endings, and how each one loops back. Includes the inline signal simulator.</div>
+  </a>
+
+  <a class="card" href="routing-engine.html">
+    <div class="c-top"><span class="c-name">Routing Engine</span><span class="arrow">→</span></div>
+    <div class="c-desc">The original simulator: pick a user's signals at any stage and see which branch and email they get.</div>
+  </a>
+
+  <a class="card" href="routing-tree.html">
+    <div class="c-top"><span class="c-name">Routing Tree</span><span class="arrow">→</span></div>
+    <div class="c-desc">The full logic as a top-down tree: the spine and every branch off each step, all at once.</div>
+  </a>
+
+  <footer>Funnel: Signup → Role pick → Doc init → Doc start → Outline generated → Editor loaded → Deck loaded → Changed slide → Payment start → Checkout → Payment success.</footer>
+</div>
+</body>
+</html>

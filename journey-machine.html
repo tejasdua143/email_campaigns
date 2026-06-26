@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Journey Machine · Presentations.AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0C0D10; --surface:#15171D; --surface-2:#1B1E26; --surface-3:#22262F;
+    --line:#2A2F3A; --line-bright:#3A414F; --ink:#ECEEF2; --ink-2:#9AA1AE; --ink-3:#646B79;
+    --blocked:#FFB454; --satisfied:#34D399; --unconvinced:#60A5FA; --friction:#A78BFA; --price:#F472B6; --route:#67E8F9;
+    --win:#34D399; --lose:#F4708F; --stall:#FFB454; --recover:#34D399;
+    --blocked-dim:rgba(255,180,84,.12); --satisfied-dim:rgba(52,211,153,.12);
+    --unconvinced-dim:rgba(96,165,250,.12); --friction-dim:rgba(167,139,250,.12); --price-dim:rgba(244,114,182,.12);
+    --sans:'Space Grotesk',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:radial-gradient(1100px 560px at 85% -10%,rgba(96,165,250,.06),transparent 60%),
+    radial-gradient(800px 480px at -5% 110%,rgba(167,139,250,.05),transparent 60%),var(--bg);
+    color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;line-height:1.5;padding:26px clamp(12px,3.5vw,36px) 56px}
+  .wrap{max-width:1140px;margin:0 auto}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+  h1{font-size:clamp(24px,4vw,35px);font-weight:600;letter-spacing:-.02em;margin:0 0 8px}
+  .sub{color:var(--ink-2);max-width:70ch;font-size:15px}
+  .sub b{color:var(--ink)}
+
+  .key{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px;font-size:12px;color:var(--ink-2)}
+  .k{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+  .swatch{width:18px;height:0;border-top-width:2px;border-top-style:solid;flex:none}
+  .swatch.dash{border-top-style:dashed}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 2px;align-items:center}
+  .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:transparent;color:var(--ink-2);font-family:inherit;font-size:12.5px;font-weight:500;padding:7px 12px;border-radius:7px;cursor:pointer;transition:.15s}
+  .seg button:hover{color:var(--ink)} .seg button[aria-pressed="true"]{background:var(--surface-3);color:var(--ink)}
+  .seg button:focus-visible{outline:2px solid var(--unconvinced);outline-offset:1px}
+  .tip{font-size:12px;color:var(--ink-3);font-family:var(--mono);margin-left:auto}
+
+  /* machine */
+  .machine{position:relative;display:flex;gap:clamp(48px,7vw,96px);min-width:860px;padding:14px 6px 6px;margin-top:14px}
+  svg.wires{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:0}
+  .col{display:flex;flex-direction:column;flex:none}
+  .col-spine{width:184px;gap:30px}
+  .col-stalls{width:248px;gap:24px;padding-top:64px}
+  .col-loss{width:236px;gap:16px;padding-top:36px}
+  .col-h{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:-12px;padding-left:2px}
+
+  .node{position:relative;z-index:1;border:1px solid var(--line);border-radius:12px;background:var(--surface);
+    padding:10px 13px;cursor:pointer;transition:border-color .15s,transform .12s,box-shadow .15s,opacity .2s;text-align:left;width:100%;font-family:inherit;color:inherit}
+  .node:hover{transform:translateY(-1px)}
+  .node:focus-visible{outline:2px solid var(--unconvinced);outline-offset:2px}
+  .n-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.3}
+  .n-s{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+  .n-spine{border-color:var(--line-bright)}
+  .n-spine.is-sel{box-shadow:0 0 0 1px var(--unconvinced),0 10px 30px -20px var(--unconvinced)}
+  .n-win{border-color:var(--win);background:var(--satisfied-dim)}
+  .n-win .n-t{color:var(--win)}
+  .n-stall{border-left:3px solid var(--stall)}
+  .n-stall.is-sel{border-color:var(--stall);box-shadow:0 0 0 1px var(--stall),0 10px 30px -20px var(--stall)}
+  .n-loss{border-left:3px solid var(--lose);background:rgba(244,112,143,.06)}
+  .n-loss.is-sel{box-shadow:0 0 0 1px var(--lose),0 10px 30px -20px var(--lose)}
+  .n-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .n-code{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink-2)}
+  .n-drop{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--stall);margin-left:auto}
+  .ministag{font-size:9px;font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:5px;background:rgba(255,180,84,.14);color:var(--stall);border:1px solid rgba(255,180,84,.4)}
+  .ministag.blind{background:rgba(139,148,166,.12);color:#8B94A6;border:1px dashed var(--line-bright)}
+  .dots{display:flex;gap:4px;margin-top:7px}
+  .dots span{width:7px;height:7px;border-radius:50%}
+  .n-x{font-size:10px;font-family:var(--mono);color:var(--lose);letter-spacing:.03em;margin-top:2px}
+
+  /* detail */
+  .detail{margin-top:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:20px;min-height:120px}
+  .d-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+  .d-title{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  .d-sub{font-size:13px;color:var(--ink-2);margin-bottom:16px}
+  .sub-row{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line)}
+  .sub-row:first-of-type{border-top:0}
+  .sub-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;flex:none}
+  .sub-body{flex:1;min-width:0}
+  .sub-who{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .sub-chip{display:inline-block;font-size:10px;font-family:var(--mono);padding:1px 7px;border-radius:5px;margin-left:7px;vertical-align:middle}
+  .sub-send{font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.5}
+  .sub-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .pill{font-size:10px;font-family:var(--mono);padding:2px 8px;border-radius:6px;border:1px solid var(--line)}
+  .pill.recover{color:var(--recover);border-color:rgba(52,211,153,.4);background:var(--satisfied-dim)}
+  .pill.blind{color:#8B94A6;border-style:dashed;border-color:var(--line-bright)}
+  .pill.hold{color:var(--ink-2)}
+  .fail-line{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink-2)}
+  .fail-line b{color:var(--lose);font-weight:600}
+  .fail-chip{display:inline-block;font-size:11px;font-family:var(--mono);color:var(--lose);background:rgba(244,112,143,.1);border:1px solid rgba(244,112,143,.35);border-radius:6px;padding:2px 8px;margin:0 4px 4px 0}
+
+  .solve{background:var(--satisfied-dim);border:1px solid rgba(52,211,153,.3);border-radius:11px;padding:13px 15px;margin-top:4px}
+  .solve-l{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--recover);margin-bottom:6px}
+  .solve-t{font-size:14px;color:var(--ink);line-height:1.55}
+  .loop-note{margin-top:10px;font-size:12px;font-family:var(--mono);color:var(--recover)}
+  .who-lands{font-size:12.5px;color:var(--ink-2);margin-bottom:14px;line-height:1.6}
+  .who-lands .from{color:var(--ink);font-weight:500}
+
+  .reset{margin-left:8px;font-family:var(--mono);font-size:12px;color:var(--ink-3);background:none;border:0;cursor:pointer}
+  .reset:hover{color:var(--ink-2)}
+
+  /* inline simulator */
+  .sim{margin-top:16px;border-top:1px solid var(--line);padding-top:16px}
+  .sim-l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .sim-l::after{content:"";height:1px;flex:1;background:var(--line)}
+  .sim-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 16px}
+  .sig{min-width:0}
+  .sig-l{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:12.5px;color:var(--ink)}
+  .sig-l .wr{font-size:9px;color:#8B94A6;border:1px dashed var(--line-bright);border-radius:5px;padding:1px 5px;font-family:var(--mono);letter-spacing:.03em}
+  .sseg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+  .sseg button{flex:1;border:0;background:transparent;color:var(--ink-2);font-family:inherit;font-size:12px;font-weight:500;padding:6px 7px;border-radius:6px;cursor:pointer;transition:.15s;white-space:nowrap}
+  .sseg button:hover{color:var(--ink)}
+  .sseg button[aria-pressed="true"]{background:var(--surface-3);color:var(--ink)}
+  .sseg button:focus-visible{outline:2px solid var(--unconvinced);outline-offset:1px}
+  .sub-row.is-match{background:rgba(103,232,249,.05);border-radius:9px;margin:0 -8px;padding-left:8px;padding-right:8px;box-shadow:inset 2px 0 0 var(--route)}
+  .sub-row.dim{opacity:.4}
+  .land-row{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .land-row .lbl{font-size:12.5px;color:var(--ink-2)}
+  .verdict{margin-top:14px;border-radius:11px;padding:12px 14px;font-size:13px;line-height:1.5}
+  .verdict.win{background:var(--satisfied-dim);border:1px solid rgba(52,211,153,.34);color:var(--ink)}
+  .verdict.lose{background:rgba(244,112,143,.07);border:1px solid rgba(244,112,143,.34);color:var(--ink)}
+  .verdict b.g{color:var(--recover)} .verdict b.r{color:var(--lose)}
+  .verdict .arch{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+
+  footer{margin-top:30px;border-top:1px solid var(--line);padding-top:16px;color:var(--ink-3);font-size:12px;line-height:1.7}
+  footer b{color:var(--ink-2);font-weight:500}
+
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Presentations.AI · the journey as a machine</div>
+  <h1>Journey Machine</h1>
+  <p class="sub">A person's path isn't a straight line. <b>Any drop can be turned back toward paying</b> — or it ends somewhere we didn't want. Green arrows = back on track. Red = a lost ending. The one goal is <b>Paid</b>; every red ending below has a fix, because those are the ones we're solving for.</p>
+
+  <div class="key">
+    <span class="k"><span class="swatch" style="border-top-color:var(--ink-3)"></span>moves forward</span>
+    <span class="k"><span class="swatch" style="border-top-color:var(--stall)"></span>drops here</span>
+    <span class="k"><span class="swatch" style="border-top-color:var(--recover)"></span>recovered → back on path</span>
+    <span class="k"><span class="swatch dash" style="border-top-color:var(--lose)"></span>not recovered → a lost ending</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg" role="group" aria-label="view">
+      <button data-view="all" aria-pressed="true">Everything</button>
+      <button data-view="paid" aria-pressed="false">Path to paid</button>
+      <button data-view="loss" aria-pressed="false">Where we lose</button>
+    </div>
+    <button class="reset" id="reset">↺ clear selection</button>
+    <span class="tip">click any box for the detail + the fix</span>
+  </div>
+
+  <div class="machine" id="machine">
+    <div class="col col-spine" id="col-spine"></div>
+    <div class="col col-stalls" id="col-stalls"></div>
+    <div class="col col-loss" id="col-loss"></div>
+    <svg class="wires" id="wires"></svg>
+  </div>
+
+  <div class="detail" id="detail"></div>
+
+  <footer>
+    <div><b>The shift:</b> a drop-off doesn't end the journey — our email tries to loop the person back onto the path. Some loops land them at Paid; some don't.</div>
+    <div><b>The job:</b> make the green loops win more often, and for every red ending, have a real fix — even if the fix is a product change or simply leaving them alone.</div>
+  </footer>
+</div>
+
+<script>
+const ARCH={blocked:'Something broke',satisfied:'Happy, just done',unconvinced:'Not sold yet',friction:'Stuck, wanted in',price:'Balked at price'};
+const ARCHC={blocked:'var(--blocked)',satisfied:'var(--satisfied)',unconvinced:'var(--unconvinced)',friction:'var(--friction)',price:'var(--price)'};
+
+const SPINE=[
+  {id:'A',t:'Arrived',s:'just signed up'},
+  {id:'B',t:'Started a deck',s:'typed a prompt'},
+  {id:'C',t:'Deck created',s:'AI built it'},
+  {id:'D',t:'Saw it & liked it',s:'watched the slideshow'},
+  {id:'E',t:'Wants to pay',s:'export / upgrade / hit a wall'},
+  {id:'F',t:'At checkout',s:'on the payment screen'},
+  {id:'W',t:'Paid',s:'the one good ending',win:true}
+];
+
+const STALLS=[
+  {id:'St0',after:'A',t:'Didn\u2019t start a deck',drop:'\u221210%',recover:'B',fail:['ghosted','opted_out'],
+   signals:[
+     {id:'input',l:'Did they type anything?',def:'none',opts:[['none','Nothing'],['partial','Started, then quit']]},
+     {id:'bounce',l:'How long did they stay?',def:'instant',opts:[['instant','Left right away'],['lingered','Looked around']]}
+   ],
+   subs:[
+     {who:'Started typing, then quit',a:'friction',send:'\u201CPick up where you left off,\u201D help finish the prompt.',back:'B',m:s=>s.input==='partial'},
+     {who:'Looked around, never started',a:'friction',send:'Hand them ready-made prompts or templates.',back:'B',m:s=>s.bounce==='lingered'},
+     {who:'Left right away',a:'unconvinced',send:'Show a 60-second demo. Send once, then stop.',back:'B',hold:true,m:s=>true}
+   ]},
+  {id:'St1',after:'B',t:'Deck didn\u2019t get made',drop:'\u221212%',recover:'C',fail:['broke','ghosted'],
+   signals:[
+     {id:'gen',l:'What happened?',blind:true,def:'abandoned',opts:[['abandoned','Quit before hitting go'],['failed','Hit go, but it broke']]},
+     {id:'device',l:'On what?',def:'desktop',opts:[['desktop','Desktop'],['mobile','Phone']]}
+   ],
+   subs:[
+     {who:'It broke on them',a:'blocked',send:'\u201CSorry, here it is now,\u201D + a retry link. Fast.',back:'C',blind:true,m:s=>s.gen==='failed'},
+     {who:'Quit on their phone',a:'blocked',send:'Offer a faster path, or finish on desktop.',back:'C',m:s=>s.device==='mobile'},
+     {who:'Gave up partway',a:'friction',send:'\u201CFinish your prompt,\u201D help them across.',back:'C',m:s=>true}
+   ]},
+  {id:'St2',after:'C',t:'Made a deck, didn\u2019t try to pay',drop:'\u221220%',recover:'E',fail:['free_gone','ghosted'],
+   signals:[
+     {id:'edited',l:'Did they edit the slides?',def:'no',opts:[['no','Didn\u2019t touch it'],['yes','Edited it']]},
+     {id:'decks',l:'How many free decks used?',def:'first',opts:[['first','Their 1st'],['second','Both (2nd)']]},
+     {id:'regen',l:'How many redos?',def:'zero',opts:[['zero','None'],['high','A lot']]},
+     {id:'viewed',l:'Watched the slideshow?',blind:true,def:'no',opts:[['no','No'],['yes','Yes']]},
+     {id:'dwell',l:'How long on the deck?',def:'short',opts:[['short','Quick look'],['long','Stuck around']]}
+   ],
+   subs:[
+     {who:'Made it their own, then left',a:'satisfied',send:'Strongest signal here \u2014 they edited the deck, so they\u2019re invested. Export is Pro, so push it: \u201CYour deck\u2019s ready \u2014 get it out / publish it.\u201D Your warmest non-price sell.',back:'E',m:s=>s.edited==='yes'},
+     {who:'Used up both free decks',a:'satisfied',send:'\u201CGo unlimited\u201D \u2014 the easiest sell you have.',back:'E',m:s=>s.decks==='second'},
+     {who:'Kept redoing it',a:'unconvinced',send:'\u201CWe\u2019ve made it better\u201D / sharper prompt / Pro writing.',back:'C',m:s=>s.regen==='high'},
+     {who:'Watched it, liked it, left',a:'satisfied',send:'Export is Pro \u2014 nudge them to export (a soft pay push), or remind them later. Don\u2019t beg.',back:'E',blind:true,m:s=>s.viewed==='yes'&&s.dwell==='long'},
+     {who:'Left before seeing the good part',a:'unconvinced',send:'Bring them back to watch the slideshow.',back:'D',blind:true,m:s=>true}
+   ]},
+  {id:'St3',after:'E',t:'Wanted to pay, no checkout',drop:'\u221260%',recover:'F',fail:['price_no','ghosted'],tag:'biggest leak',
+   signals:[
+     {id:'trigger',l:'What made them hit pay?',def:'export',opts:[['export','Tried to export'],['upgrade','Clicked upgrade'],['gate','Hit a locked feature']]},
+     {id:'device',l:'On what?',def:'desktop',opts:[['desktop','Desktop'],['mobile','Phone']]},
+     {id:'pricing',l:'Saw the pricing page?',def:'yes',opts:[['yes','Yes'],['no','No']]},
+     {id:'pro',l:'Looked at what Pro gives?',def:'no',opts:[['no','No'],['yes','Yes']]}
+   ],
+   subs:[
+     {who:'Wanted to pay, on a phone',a:'blocked',send:'Direct checkout link / desktop \u2014 but really, fix mobile checkout.',back:'F',m:s=>s.device==='mobile'&&(s.trigger==='export'||s.trigger==='upgrade')},
+     {who:'Tried to export, saw price, stopped',a:'price',send:'Your best email: \u201Cone click away,\u201D reframe value, maybe a deal.',back:'F',m:s=>s.trigger==='export'&&s.device==='desktop'&&s.pricing==='yes'},
+     {who:'Compared plans, then left',a:'price',send:'Answer doubts, clarify the plans, a small nudge.',back:'F',m:s=>s.trigger==='upgrade'&&s.pricing==='yes'&&s.pro==='yes'},
+     {who:'Saw the price but not the value',a:'unconvinced',send:'Lead with what Pro does \u2014 not the price.',back:'E',m:s=>s.pricing==='yes'&&s.pro==='no'},
+     {who:'Just bumped a locked feature',a:'unconvinced',send:'Light touch, or nothing at all.',back:'E',hold:true,m:s=>true}
+   ]},
+  {id:'St4',after:'F',t:'At checkout, didn\u2019t pay',drop:'\u221297.5%',recover:'F',fail:['broke','price_no'],tag:'now trackable',
+   signals:[
+     {id:'outcome',l:'What happened at checkout?',def:'declined',opts:[['declined','Payment failed'],['abandoned','They just left']]},
+     {id:'details',l:'Typed in card details?',def:'no',opts:[['no','No'],['yes','Yes']]},
+     {id:'device',l:'On what?',def:'desktop',opts:[['desktop','Desktop'],['mobile','Phone']]}
+   ],
+   subs:[
+     {who:'Payment failed',a:'blocked',send:'\u201CTry again\u201D + another way to pay. Add a fallback.',back:'F',m:s=>s.outcome==='declined'},
+     {who:'Typed card, then bailed',a:'price',send:'Reassure \u2014 money-back, secure \u2014 with a gentle nudge.',back:'F',m:s=>s.details==='yes'},
+     {who:'Saw the final price, left',a:'price',send:'Remind them the value, maybe a targeted offer.',back:'F',m:s=>true}
+   ]}
+];
+
+const LOSSES=[
+  {id:'free_gone',t:'Got it free, gone',
+   solve:'Mostly fine for an occasional tool \u2014 don\u2019t fight it now. Export is Pro, so they got the look but not the file; remind them at their next deck moment that exporting needs Pro.',loop:'A',loopL:'re-engage at their next need'},
+  {id:'ghosted',t:'Went cold',
+   solve:'Usually lost to a weak first email. Fix the earliest touch so fewer go cold, try a different time or channel, run one win-back later \u2014 then stop.',loop:'A',loopL:'one win-back, then let go'},
+  {id:'broke',t:'Payment kept breaking',
+   solve:'Not an email problem. Fix it in the product: fallback methods, smarter retries, working mobile checkout. The most recoverable loss \u2014 fixing this moves the whole checkout number.',product:true},
+  {id:'price_no',t:'Decided it\u2019s not worth it',
+   solve:'Split them up: reframe value for the on-the-fence, a targeted offer for the price-sensitive. If it\u2019s a real price ceiling, that\u2019s a pricing test \u2014 not an email. Re-offer later.',loop:'E',loopL:'re-offer with new value/price'},
+  {id:'opted_out',t:'Said no / unsubscribed',
+   solve:'Respect it and stop. The only real fix is upstream \u2014 make the earlier emails good enough that fewer people opt out.'}
+];
+
+const byId={};
+SPINE.forEach(n=>byId[n.id]=n); STALLS.forEach(n=>byId[n.id]=n); LOSSES.forEach(n=>byId[n.id]=n);
+
+/* ---- render nodes ---- */
+const cs=document.getElementById('col-spine'), cst=document.getElementById('col-stalls'), cl=document.getElementById('col-loss');
+cs.innerHTML='<div class="col-h">the path</div>';
+cst.innerHTML='<div class="col-h">where people drop</div>';
+cl.innerHTML='<div class="col-h">endings we don\u2019t want</div>';
+
+SPINE.forEach(n=>{
+  const b=document.createElement('button'); b.className='node n-spine'+(n.win?' n-win':''); b.dataset.node=n.id; b.dataset.type='spine';
+  b.innerHTML=`<div class="n-t">${n.win?'\u2705 ':''}${n.t}</div><div class="n-s">${n.s}</div>`;
+  cs.appendChild(b);
+});
+STALLS.forEach(n=>{
+  const b=document.createElement('button'); b.className='node n-stall'; b.dataset.node=n.id; b.dataset.type='stall';
+  const anyBlind=n.subs.some(s=>s.blind);
+  b.innerHTML=`<div class="n-row"><span class="n-code">${n.id}</span><span class="n-drop">${n.drop}</span></div>
+    <div class="n-t">${n.t}</div>
+    ${n.tag?`<div style="margin-top:6px"><span class="ministag ${anyBlind?'blind':''}">${n.tag}</span></div>`:''}
+    <div class="dots">${n.subs.map(s=>`<span style="background:${ARCHC[s.a]}"></span>`).join('')}</div>`;
+  cst.appendChild(b);
+});
+LOSSES.forEach(n=>{
+  const b=document.createElement('button'); b.className='node n-loss'; b.dataset.node=n.id; b.dataset.type='loss';
+  b.innerHTML=`<div class="n-t">${n.t}</div><div class="n-x">a non-paying ending</div>`;
+  cl.appendChild(b);
+});
+
+/* ---- edges ---- */
+const edges=[]; // {from,to,type}
+for(let i=0;i<SPINE.length-1;i++) edges.push({from:SPINE[i].id,to:SPINE[i+1].id,type:'progress'});
+STALLS.forEach(st=>{
+  edges.push({from:st.after,to:st.id,type:'stall'});
+  edges.push({from:st.id,to:st.recover,type:'recover'});
+  st.fail.forEach(f=> edges.push({from:st.id,to:f,type:'fail'}));
+});
+LOSSES.forEach(l=>{ if(l.loop) edges.push({from:l.id,to:l.loop,type:'loop'}); });
+
+/* ---- svg wiring ---- */
+const machine=document.getElementById('machine'), svg=document.getElementById('wires');
+const SVGNS='http://www.w3.org/2000/svg';
+const EC={progress:'var(--ink-3)',stall:'var(--stall)',recover:'var(--recover)',fail:'var(--lose)',loop:'var(--recover)'};
+
+function defs(){
+  const d=document.createElementNS(SVGNS,'defs');
+  Object.entries({progress:'#646B79',stall:'#FFB454',recover:'#34D399',fail:'#F4708F'}).forEach(([k,c])=>{
+    const m=document.createElementNS(SVGNS,'marker');
+    m.setAttribute('id','ah-'+k); m.setAttribute('viewBox','0 0 10 10'); m.setAttribute('refX','8'); m.setAttribute('refY','5');
+    m.setAttribute('markerWidth','7'); m.setAttribute('markerHeight','7'); m.setAttribute('orient','auto-start-reverse');
+    const p=document.createElementNS(SVGNS,'path'); p.setAttribute('d','M0,0 L10,5 L0,10 z'); p.setAttribute('fill',c);
+    m.appendChild(p); d.appendChild(m);
+  });
+  svg.appendChild(d);
+}
+
+function pt(el,side){
+  const r=el.getBoundingClientRect(), m=machine.getBoundingClientRect();
+  const x=r.left-m.left, y=r.top-m.top, w=r.width, h=r.height;
+  if(side==='r') return {x:x+w,y:y+h/2};
+  if(side==='l') return {x:x,y:y+h/2};
+  if(side==='t') return {x:x+w/2,y:y};
+  return {x:x+w/2,y:y+h}; // b
+}
+function path(p1,p2,vert){
+  if(vert){const k=Math.max(18,Math.abs(p2.y-p1.y)*0.4);return `M${p1.x},${p1.y} C${p1.x},${p1.y+k} ${p2.x},${p2.y-k} ${p2.x},${p2.y}`;}
+  const dx=p2.x-p1.x,s=Math.sign(dx)||1,k=Math.max(44,Math.abs(dx)*0.5);
+  return `M${p1.x},${p1.y} C${p1.x+s*k},${p1.y} ${p2.x-s*k},${p2.y} ${p2.x},${p2.y}`;
+}
+function nodeEl(id){return machine.querySelector(`[data-node="${id}"]`);}
+
+function draw(){
+  // size svg to machine content
+  svg.setAttribute('width',machine.scrollWidth); svg.setAttribute('height',machine.scrollHeight);
+  svg.innerHTML=''; defs();
+  edges.forEach((e,idx)=>{
+    const a=nodeEl(e.from), b=nodeEl(e.to); if(!a||!b) return;
+    let p1,p2,vert=false,mk=e.type;
+    if(e.type==='progress'){p1=pt(a,'b');p2=pt(b,'t');vert=true;}
+    else if(e.type==='stall'){p1=pt(a,'r');p2=pt(b,'l');}
+    else if(e.type==='recover'){p1=pt(a,'l');p2=pt(b,'r');mk='recover';}
+    else if(e.type==='fail'){p1=pt(a,'r');p2=pt(b,'l');mk='fail';}
+    else if(e.type==='loop'){p1=pt(a,'b');p2=pt(b,'l');mk='recover';}
+    const el=document.createElementNS(SVGNS,'path');
+    el.setAttribute('d',path(p1,p2,vert));
+    el.setAttribute('fill','none');
+    el.setAttribute('stroke',EC[e.type]);
+    el.setAttribute('stroke-width',e.type==='progress'?'2.4':'1.9');
+    if(e.type==='fail'||e.type==='loop') el.setAttribute('stroke-dasharray','5 4');
+    el.setAttribute('marker-end','url(#ah-'+mk+')');
+    el.dataset.from=e.from; el.dataset.to=e.to; el.dataset.etype=e.type;
+    svg.appendChild(el);
+    e.el=el;
+  });
+  // live simulator wire (drawn on top, bright)
+  if(SIM.stall&&simWire){
+    const a=nodeEl(simWire.from), b=nodeEl(simWire.to);
+    if(a&&b){
+      let p1,p2,mk;
+      if(simWire.type==='recover'){ p1=pt(a,'l'); p2=pt(b,'r'); mk='recover'; }
+      else { p1=pt(a,'r'); p2=pt(b,'l'); mk='fail'; }
+      const el=document.createElementNS(SVGNS,'path');
+      el.setAttribute('d',path(p1,p2,false));
+      el.setAttribute('fill','none');
+      el.setAttribute('stroke', simWire.type==='recover'?'var(--recover)':'var(--lose)');
+      el.setAttribute('stroke-width','3.4');
+      if(simWire.type==='fail') el.setAttribute('stroke-dasharray','6 4');
+      el.setAttribute('marker-end','url(#ah-'+mk+')');
+      el.style.filter='drop-shadow(0 0 5px '+(simWire.type==='recover'?'rgba(52,211,153,.6)':'rgba(244,112,143,.6)')+')';
+      svg.appendChild(el);
+    }
+  }
+  applyEmphasis();
+}
+
+/* ---- emphasis (view + focus) ---- */
+function baseOpacity(view,type){
+  if(view==='paid'){return {progress:1,recover:1,stall:.45,fail:.1,loop:.5}[type];}
+  if(view==='loss'){return {progress:.4,recover:.25,stall:.7,fail:1,loop:.8}[type];}
+  return {progress:1,stall:.85,recover:.9,fail:.55,loop:.7}[type];
+}
+function applyEmphasis(){
+  const view=machine.dataset.view||'all', focus=machine.dataset.focus||'';
+  edges.forEach(e=>{
+    if(!e.el)return;
+    let o=baseOpacity(view,e.type);
+    if(focus){ const rel=(e.from===focus||e.to===focus); o = rel? Math.max(o,.95):0.08; }
+    // when simulating, mute the focused fork's static recover/fail edges so the live wire reads clearly
+    if(SIM.stall&&simWire&&e.from===SIM.stall&&(e.type==='recover'||e.type==='fail')) o=Math.min(o,0.1);
+    e.el.style.opacity=o;
+  });
+  machine.querySelectorAll('.node').forEach(n=>{
+    const id=n.dataset.node;
+    let o=1;
+    if(focus){
+      const rel = id===focus || edges.some(e=>(e.from===focus&&e.to===id)||(e.to===focus&&e.from===id));
+      o = rel?1:0.28;
+      if(SIM.stall&&simWire&&id===simWire.to) o=1; // keep the live wire's destination lit
+    } else if(view==='paid'){ o = (n.dataset.type==='loss')?0.3:1; }
+    else if(view==='loss'){ o = (n.dataset.type==='loss'||n.dataset.type==='stall')?1:0.55; }
+    n.style.opacity=o;
+    n.classList.toggle('is-sel', !!focus && id===focus);
+  });
+}
+
+/* ---- detail panel ---- */
+const detail=document.getElementById('detail');
+function stallsFailingTo(lossId){return STALLS.filter(s=>s.fail.includes(lossId));}
+
+/* ---- inline simulator state ---- */
+const SIM={stall:null,sel:{},landed:'yes'};
+let simWire=null;
+function ensureSimSel(st){
+  if(!SIM.sel[st.id]){ SIM.sel[st.id]={}; st.signals.forEach(sg=>SIM.sel[st.id][sg.id]=sg.def); }
+}
+function evalStall(st){
+  const s=SIM.sel[st.id];
+  for(const sub of st.subs){ if(sub.m(s)) return sub; }
+  return st.subs[st.subs.length-1];
+}
+function pickFail(st,arch){
+  const pref = arch==='blocked' ? 'broke' : arch==='price' ? 'price_no' : 'ghosted';
+  return st.fail.includes(pref) ? pref : st.fail[0];
+}
+
+function showStall(st){
+  ensureSimSel(st);
+  const subs=st.subs.map((s,i)=>`
+    <div class="sub-row" data-sub="${i}">
+      <span class="sub-dot" style="background:${ARCHC[s.a]}"></span>
+      <div class="sub-body">
+        <div><span class="sub-who">${s.who}</span><span class="sub-chip" style="background:${ARCHC[s.a]}22;color:${ARCHC[s.a]}">${ARCH[s.a]}</span></div>
+        <div class="sub-send">${s.send}</div>
+        <div class="sub-tags">
+          <span class="pill recover">\u21A9 if it works \u2192 back to ${byId[s.back].t}</span>
+          ${s.blind?'<span class="pill blind">\uD83D\uDD27 not tracked yet</span>':''}
+          ${s.hold?'<span class="pill hold">\u23F8 maybe send nothing</span>':''}
+        </div>
+      </div>
+    </div>`).join('');
+  const fails=st.fail.map(f=>`<span class="fail-chip">${byId[f].t}</span>`).join('');
+  const sigs=st.signals.map(sg=>`
+    <div class="sig">
+      <div class="sig-l">${sg.l}${sg.blind?'<span class="wr" title="Not captured yet \u2014 hypothetical until instrumented">\uD83D\uDD27 blind</span>':''}</div>
+      <div class="sseg" data-sig="${sg.id}">
+        ${sg.opts.map(([v,t])=>`<button data-val="${v}" aria-pressed="${SIM.sel[st.id][sg.id]===v}">${t}</button>`).join('')}
+      </div>
+    </div>`).join('');
+  detail.innerHTML=`
+    <div class="d-eyebrow">${st.id} \u00B7 a fork in the journey ${st.tag?'\u00B7 '+st.tag:''}</div>
+    <h2 class="d-title">${st.t} <span style="color:var(--stall);font-family:var(--mono);font-size:15px">${st.drop}</span></h2>
+    <div class="d-sub">Who\u2019s here, what to send, and where each one goes next. Win it and they rejoin the path to <b>Paid</b>.</div>
+    ${subs}
+    <div class="fail-line">If none of it lands, this fork ends as: ${fails} <b>\u2014 see those endings (right column) for the fix.</b></div>
+    <div class="sim">
+      <div class="sim-l">simulate one person \u00B7 pick their signals</div>
+      <div class="sim-grid">${sigs}</div>
+      <div class="land-row">
+        <span class="lbl">Did the email land?</span>
+        <div class="sseg" id="land-seg">
+          <button data-land="yes" aria-pressed="${SIM.landed==='yes'}">Recovered</button>
+          <button data-land="no" aria-pressed="${SIM.landed==='no'}">Didn\u2019t land</button>
+        </div>
+      </div>
+      <div class="verdict" id="verdict"></div>
+    </div>`;
+  // signal pickers
+  detail.querySelectorAll('.sseg[data-sig]').forEach(seg=>{
+    const sig=seg.dataset.sig;
+    seg.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+      SIM.sel[st.id][sig]=btn.dataset.val; runSim(st);
+    }));
+  });
+  document.getElementById('land-seg').querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
+    SIM.landed=btn.dataset.land; runSim(st);
+  }));
+  SIM.stall=st.id;
+  runSim(st);
+}
+
+function runSim(st){
+  ensureSimSel(st);
+  // reflect button states
+  detail.querySelectorAll('.sseg[data-sig]').forEach(seg=>{
+    const sig=seg.dataset.sig;
+    seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', SIM.sel[st.id][sig]===b.dataset.val));
+  });
+  detail.querySelectorAll('#land-seg button').forEach(b=>b.setAttribute('aria-pressed', SIM.landed===b.dataset.land));
+
+  const matched=evalStall(st);
+  const mi=st.subs.indexOf(matched);
+  detail.querySelectorAll('.sub-row').forEach(r=>{
+    const on = +r.dataset.sub===mi;
+    r.classList.toggle('is-match',on);
+    r.classList.toggle('dim',!on);
+  });
+  const recovered = SIM.landed==='yes';
+  const failId = pickFail(st,matched.a);
+  const v=document.getElementById('verdict');
+  if(recovered){
+    v.className='verdict win';
+    v.innerHTML=`<div><span class="arch">${ARCH[matched.a]}</span> \u2192 <b>${matched.who}</b></div>
+      <div style="margin-top:5px">Email lands \u2192 <b class="g">recovers \u2192 back to ${byId[matched.back].t}</b>, on the path to Paid.${matched.hold?' <span class="arch">(but this one may be better left alone)</span>':''}</div>`;
+    simWire={from:st.id,to:matched.back,type:'recover'};
+  }else{
+    v.className='verdict lose';
+    v.innerHTML=`<div><span class="arch">${ARCH[matched.a]}</span> \u2192 <b>${matched.who}</b></div>
+      <div style="margin-top:5px">Email doesn\u2019t land \u2192 <b class="r">lost ending: ${byId[failId].t}</b>. See the right column for its fix.</div>`;
+    simWire={from:st.id,to:failId,type:'fail'};
+  }
+  draw();
+}
+function clearSim(){ const had=SIM.stall; SIM.stall=null; simWire=null; if(had) draw(); }
+function showLoss(l){
+  clearSim();
+  const froms=stallsFailingTo(l.id);
+  const who = froms.length
+    ? `People arrive here from ${froms.map(s=>`<span class="from">${s.t}</span>`).join(', ')}.`
+    : `People arrive here when they explicitly opt out, from anywhere in the journey.`;
+  detail.innerHTML=`
+    <div class="d-eyebrow">a non-paying ending</div>
+    <h2 class="d-title" style="color:var(--lose)">${l.t}</h2>
+    <div class="who-lands">${who}</div>
+    <div class="solve">
+      <div class="solve-l">How we solve for this ending</div>
+      <div class="solve-t">${l.solve}</div>
+      ${l.loop?`<div class="loop-note">\u21BA loops back \u2192 ${byId[l.loop].t} (${l.loopL})</div>`:''}
+      ${l.product?`<div class="loop-note" style="color:var(--blocked)">\u2699 a product fix, not an email</div>`:''}
+    </div>`;
+}
+function showSpine(n){
+  clearSim();
+  detail.innerHTML=`
+    <div class="d-eyebrow">a step on the path</div>
+    <h2 class="d-title">${n.win?'\u2705 ':''}${n.t}</h2>
+    <div class="d-sub">${n.s}.</div>
+    <div style="font-size:13px;color:var(--ink-2);line-height:1.6">${n.win
+      ? 'The one ending we want. Many different recovered journeys all converge here \u2014 a fixed payment, a finished export, a second free deck that hit the wall.'
+      : 'People in good standing pass straight through. The ones who fall out here go to the fork on the right \u2014 click it to see how we pull them back.'}</div>`;
+}
+function showIntro(){
+  clearSim();
+  detail.innerHTML=`
+    <div class="d-eyebrow">start here</div>
+    <h2 class="d-title">Read it as a machine, not a line</h2>
+    <div class="d-sub">Click a <b>fork</b> (amber) to see who\u2019s stuck there and what to send. Click an <b>ending</b> (red) to see how we solve it. Use <b>Path to paid</b> / <b>Where we lose</b> up top to focus.</div>
+    <div style="font-size:13px;color:var(--ink-2);line-height:1.65">Every amber fork has a green way back to the path and a red way out. The whole game is tilting people toward the green \u2014 and making sure each red ending has somewhere to go, whether that\u2019s a smarter email, a product fix, or knowing when to stop.</div>`;
+}
+
+machine.addEventListener('click',e=>{
+  const node=e.target.closest('.node'); if(!node)return;
+  const id=node.dataset.node, type=node.dataset.type;
+  machine.dataset.focus = (machine.dataset.focus===id)?'':id;
+  applyEmphasis();
+  if(!machine.dataset.focus){ showIntro(); return; }
+  if(type==='stall') showStall(byId[id]);
+  else if(type==='loss') showLoss(byId[id]);
+  else showSpine(byId[id]);
+});
+
+/* view toggle */
+document.querySelectorAll('.seg button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.seg button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    machine.dataset.view=b.dataset.view; applyEmphasis();
+  });
+});
+document.getElementById('reset').addEventListener('click',()=>{ machine.dataset.focus=''; applyEmphasis(); showIntro(); });
+
+/* init */
+machine.dataset.view='all';
+function init(){ draw(); showIntro(); }
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(()=>{draw();});}
+window.addEventListener('load',init);
+window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(draw,120);});
+const ro=new ResizeObserver(()=>{clearTimeout(window._ro);window._ro=setTimeout(draw,120);});
+ro.observe(machine);
+init();
+</script>
+</body>
+</html>

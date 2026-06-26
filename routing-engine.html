@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drop-off Routing Engine · Presentations.AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#0C0D10;
+    --surface:#15171D;
+    --surface-2:#1B1E26;
+    --surface-3:#22262F;
+    --line:#2A2F3A;
+    --line-bright:#3A414F;
+    --ink:#ECEEF2;
+    --ink-2:#9AA1AE;
+    --ink-3:#646B79;
+
+    --blocked:#FFB454;   --blocked-dim:rgba(255,180,84,.12);   --blocked-bd:rgba(255,180,84,.42);
+    --satisfied:#34D399; --satisfied-dim:rgba(52,211,153,.12); --satisfied-bd:rgba(52,211,153,.42);
+    --unconvinced:#60A5FA;--unconvinced-dim:rgba(96,165,250,.12);--unconvinced-bd:rgba(96,165,250,.42);
+    --friction:#A78BFA;  --friction-dim:rgba(167,139,250,.12); --friction-bd:rgba(167,139,250,.42);
+    --price:#F472B6;     --price-dim:rgba(244,114,182,.12);     --price-bd:rgba(244,114,182,.42);
+    --route:#67E8F9;     --route-dim:rgba(103,232,249,.10);     --route-bd:rgba(103,232,249,.38);
+    --blind:#8B94A6;
+
+    --sans:'Space Grotesk',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --r:14px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(96,165,250,.06), transparent 60%),
+      radial-gradient(900px 500px at -5% 110%, rgba(167,139,250,.05), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    padding:28px clamp(16px,4vw,44px) 60px;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+
+  /* ---- header ---- */
+  header.head{margin-bottom:26px}
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:10px;
+  }
+  h1{
+    font-size:clamp(26px,4vw,38px);font-weight:600;letter-spacing:-.02em;margin:0 0 8px;
+  }
+  .sub{color:var(--ink-2);max-width:62ch;font-size:15px}
+  .hint{
+    margin-top:14px;font-size:13px;color:var(--ink-3);
+    display:inline-flex;gap:8px;align-items:center;
+  }
+  .hint b{color:var(--ink-2);font-weight:500}
+
+  /* ---- legend ---- */
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .lg{
+    display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;
+    border:1px solid var(--line);border-radius:999px;background:var(--surface);
+    font-size:12px;color:var(--ink-2);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .lg.blind{border-style:dashed;border-color:var(--line-bright)}
+  .lg .wr{font-size:11px;color:var(--blind)}
+
+  /* ---- funnel ribbon ---- */
+  .ribbon-wrap{margin:24px -6px 22px;overflow-x:auto;padding:6px}
+  .ribbon{display:flex;align-items:stretch;gap:0;min-width:760px}
+  .stage{
+    flex:1 1 0;min-width:140px;text-align:left;cursor:pointer;
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:13px 14px;position:relative;transition:border-color .18s,background .18s,transform .18s;
+    font-family:inherit;color:inherit;
+  }
+  .stage:hover{border-color:var(--line-bright);background:var(--surface-2)}
+  .stage:focus-visible{outline:2px solid var(--unconvinced);outline-offset:2px}
+  .stage[aria-current="true"]{
+    border-color:var(--accent,var(--ink-2));
+    background:linear-gradient(180deg,var(--surface-2),var(--surface));
+    box-shadow:0 0 0 1px var(--accent,transparent), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+  .stage-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .scode{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-2)}
+  .ready{display:inline-flex;align-items:center;gap:5px;font-size:10px;
+    font-family:var(--mono);letter-spacing:.04em;color:var(--ink-3);text-transform:uppercase}
+  .ready .rdot{width:7px;height:7px;border-radius:50%}
+  .sname{font-size:13px;font-weight:500;line-height:1.3;margin-bottom:10px;min-height:34px;color:var(--ink)}
+  .sdrop{font-family:var(--mono);font-size:21px;font-weight:600;letter-spacing:-.02em}
+  .sbodies{font-size:11px;color:var(--ink-3);margin-top:2px}
+  .stag{
+    display:inline-block;margin-top:9px;font-size:10px;font-family:var(--mono);
+    letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;
+  }
+  .stag.p0{background:rgba(255,180,84,.14);color:var(--blocked);border:1px solid var(--blocked-bd)}
+  .stag.blind{background:rgba(139,148,166,.12);color:var(--blind);border:1px solid var(--line-bright);border-style:dashed}
+  .arrow{
+    flex:none;align-self:center;color:var(--ink-3);font-family:var(--mono);
+    padding:0 4px;font-size:16px;user-select:none;
+  }
+  .prefunnel{font-size:12px;color:var(--ink-3);margin-top:2px;font-family:var(--mono)}
+
+  /* ---- workspace ---- */
+  .work{display:grid;grid-template-columns:minmax(0,0.86fr) minmax(0,1.14fr);gap:18px;align-items:start}
+  @media(max-width:860px){.work{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px}
+  .ptitle{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:4px}
+  .ptitle h2{font-size:16px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .ptitle .pc{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .pq{font-size:13px;color:var(--ink-2);margin-bottom:18px}
+
+  /* signals */
+  .sig{margin-bottom:16px}
+  .sig:last-child{margin-bottom:4px}
+  .sig-l{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:13px;color:var(--ink)}
+  .sig-l .wr{
+    font-size:10px;color:var(--blind);border:1px dashed var(--line-bright);
+    border-radius:5px;padding:1px 5px;font-family:var(--mono);letter-spacing:.03em;cursor:help;
+  }
+  .seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+  .seg button{
+    flex:1;border:0;background:transparent;color:var(--ink-2);font-family:inherit;
+    font-size:12.5px;font-weight:500;padding:7px 8px;border-radius:7px;cursor:pointer;
+    transition:background .15s,color .15s;white-space:nowrap;
+  }
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{background:var(--surface-3);color:var(--ink);box-shadow:0 1px 0 rgba(255,255,255,.04) inset}
+  .seg button:focus-visible{outline:2px solid var(--unconvinced);outline-offset:1px}
+
+  .note{
+    margin-top:16px;border-left:2px solid var(--blocked-bd);background:var(--blocked-dim);
+    border-radius:0 8px 8px 0;padding:10px 12px;font-size:12.5px;color:var(--ink-2);
+  }
+  .note b{color:var(--blocked);font-weight:600}
+  .reset{margin-top:16px;font-size:12px;color:var(--ink-3);background:none;border:0;
+    cursor:pointer;font-family:var(--mono);padding:0}
+  .reset:hover{color:var(--ink-2)}
+
+  /* result banner */
+  .result{
+    border:1px solid var(--ac-bd,var(--line));border-radius:14px;padding:16px 16px 15px;
+    background:linear-gradient(180deg,var(--ac-dim,var(--surface-2)),transparent 140%);
+    margin-bottom:18px;transition:border-color .25s,background .25s;
+    position:relative;overflow:hidden;
+  }
+  .result::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ac,var(--line-bright));transition:background .25s}
+  .res-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:11px}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+    padding:5px 11px;border-radius:999px;border:1px solid var(--ac-bd,var(--line));
+    background:var(--ac-dim);color:var(--ac);
+  }
+  .res-code{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-left:auto}
+  .flag{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);
+    padding:3px 8px;border-radius:6px;border:1px dashed var(--line-bright);color:var(--blind);
+  }
+  .flag.hold{border-style:solid;border-color:var(--line-bright);color:var(--ink-2)}
+  .res-job-l{font-size:11px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+  .res-job{font-size:15px;line-height:1.45;color:var(--ink)}
+  .res-meta{display:flex;gap:18px;margin-top:13px;flex-wrap:wrap}
+  .res-meta div{font-size:12px;color:var(--ink-2)}
+  .res-meta span{color:var(--ink-3);font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:3px}
+  .res-meta b{font-family:var(--mono);font-weight:500;color:var(--ink);font-size:13px}
+
+  /* branch ladder */
+  .ladder-l{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-3);margin-bottom:11px;display:flex;align-items:center;gap:8px}
+  .ladder-l::after{content:"";height:1px;flex:1;background:var(--line)}
+  .rung{
+    border:1px solid var(--line);border-radius:11px;padding:11px 13px;margin-bottom:8px;
+    background:var(--surface);transition:all .2s;position:relative;
+  }
+  .rung.on{
+    border-color:var(--ac-bd);background:var(--ac-dim);
+    box-shadow:0 0 0 1px var(--ac-bd), 0 10px 30px -22px var(--ac);
+    transform:translateX(2px);
+  }
+  .rung-top{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .rcode{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-2)}
+  .rung.on .rcode{color:var(--ac)}
+  .rarch{font-size:11px;color:var(--ink-3);font-weight:500}
+  .lands{margin-left:auto;font-size:10px;font-family:var(--mono);letter-spacing:.04em;
+    color:var(--ac);text-transform:uppercase;opacity:0;transition:opacity .2s}
+  .rung.on .lands{opacity:1}
+  .rcond{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin-bottom:5px;
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px;display:inline-block}
+  .rjob{font-size:12.5px;color:var(--ink-2);line-height:1.45}
+  .rung.on .rjob{color:var(--ink)}
+  .rmini{display:inline-flex;gap:6px;margin-left:8px}
+  .rmini .wr,.rmini .hd{font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:4px;
+    border:1px dashed var(--line-bright);color:var(--blind);letter-spacing:.03em}
+  .rmini .hd{border-style:solid;color:var(--ink-3)}
+
+  .route-btn{
+    margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--route);background:var(--route-dim);
+    border:1px solid var(--route-bd);border-radius:8px;padding:7px 12px;cursor:pointer;transition:background .15s;
+  }
+  .route-btn:hover{background:rgba(103,232,249,.18)}
+
+  /* footer */
+  footer{margin-top:30px;border-top:1px solid var(--line);padding-top:18px;
+    display:flex;gap:26px;flex-wrap:wrap;color:var(--ink-3);font-size:12px}
+  footer b{color:var(--ink-2);font-weight:500}
+  footer .mono{font-family:var(--mono)}
+
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="head">
+    <div class="eyebrow">Presentations.AI · which email to send</div>
+    <h1>Drop-off Routing Engine</h1>
+    <p class="sub">Someone dropped off. This tells you which email to send them — based on what they actually did, not just where they quit. Five kinds of people, five different fixes. Sometimes the right move is to send nothing.</p>
+    <div class="hint">↳ <span><b>Pick where they dropped off</b>, then answer a few quick questions. The right email shows up on the right.</span></div>
+
+    <div class="legend" id="legend"></div>
+  </header>
+
+  <div class="ribbon-wrap">
+    <div class="ribbon" id="ribbon"></div>
+  </div>
+  <div class="prefunnel">before all this · 15% drop off at the search/ad stage (organic ≈ paid) — not an email decision</div>
+
+  <div class="work">
+    <section class="panel" id="sim">
+      <div class="ptitle"><h2 id="sim-stage">—</h2><span class="pc" id="sim-code"></span></div>
+      <div class="pq" id="sim-q"></div>
+      <div id="signals"></div>
+      <div id="note-slot"></div>
+      <button class="reset" id="reset">↺ reset signals</button>
+    </section>
+
+    <section class="panel" id="out">
+      <div class="result" id="result"></div>
+      <div class="ladder-l">every path · it picks the first that fits</div>
+      <div id="ladder"></div>
+    </section>
+  </div>
+
+  <footer>
+    <div><b>The trick:</b> what they did, and what device they're on, matters more than where they quit. The same step can need opposite emails.</div>
+    <div><span class="mono">🔧</span> <b>= we don't track this yet.</b> Any path with it can't run until we do — that's the to-do list.</div>
+    <div><b>"Maybe send nothing"</b> means the best move might be no email at all.</div>
+  </footer>
+</div>
+
+<script>
+const ARCH = {
+  blocked:    {label:'Something broke',      v:'blocked',    note:'Don\u2019t sell \u2014 just fix it or get them past it.'},
+  satisfied:  {label:'Happy, just done',     v:'satisfied',  note:'They got what they came for. Invite them back later \u2014 don\u2019t nag.'},
+  unconvinced:{label:'Not sold yet',         v:'unconvinced',note:'They didn\u2019t see why it\u2019s worth it. Show them.'},
+  friction:   {label:'Stuck, but wanted in', v:'friction',   note:'They were trying. Clear the thing in their way.'},
+  price:      {label:'Balked at the price',  v:'price',      note:'The price stopped them. Remind them why it\u2019s worth it, or sweeten it.'},
+  route:      {label:'Goes to next step',    v:'route',      note:'Belongs in the next stage.'}
+};
+
+const STATES = [
+  {
+    id:'S0', stage:'Signed up \u2192 Started a deck', drop:'\u221210%', bodies:'\u2248 1,000 leave / day',
+    q:'Did they even start a deck?', tag:null,
+    signals:[
+      {id:'input', l:'Did they type anything?', def:'none', opts:[['none','Nothing'],['partial','Started, then quit']]},
+      {id:'bounce',l:'How long did they stay?',  def:'instant', opts:[['instant','Left right away'],['lingered','Looked around']]},
+      {id:'persona',l:'Who are they?',       def:'other', opts:[['other','Regular user'],['edu','Student / teacher']]}
+    ],
+    branches:[
+      {code:'S0c', a:'friction', m:s=>s.input==='partial',
+        cond:'Started typing, then quit', job:'They were trying \u2014 your best shot at winning them back. Email: \u201CPick up where you left off,\u201D and help them finish the prompt.', send:'within hours'},
+      {code:'S0b', a:'friction', m:s=>s.bounce==='lingered',
+        cond:'Looked around, never started', job:'They froze at the blank page. Hand them a few ready-made prompts or templates so they don\u2019t have to start from scratch.', send:'hours\u2013a day'},
+      {code:'S0a', a:'unconvinced', m:s=>true,
+        cond:'Left right away, did nothing', job:'Show them what they could make in under a minute, one tap to start from a template. Keep it light \u2014 send once, then leave them alone.', send:'1\u20132 days', hold:true}
+    ],
+    overlay:s=> s.persona==='edu'
+      ? 'Heads up: students and teachers usually finish this step (<b>~90%</b>). If one stops here, something probably broke \u2014 it\u2019s not that they lost interest.'
+      : null
+  },
+  {
+    id:'S1', stage:'Started \u2192 Deck created', drop:'\u221212%', bodies:'\u2248 1,060 leave / day',
+    q:'Did a deck actually get made?', tag:null,
+    signals:[
+      {id:'gen',   l:'What happened?', blind:true, def:'abandoned', opts:[['abandoned','Quit before hitting go'],['failed','Hit go, but it broke']]},
+      {id:'device',l:'On what?', def:'desktop', opts:[['desktop','Desktop'],['mobile','Phone']]}
+    ],
+    branches:[
+      {code:'S1a', a:'blocked', m:s=>s.gen==='failed', blind:true,
+        cond:'It broke on them', job:'Not their fault \u2014 the deck failed to generate. Email fast: \u201CSorry, here it is now,\u201D with a link to try again. Biggest payoff here, since they really wanted it.', send:'minutes\u2013hours'},
+      {code:'S1c', a:'blocked', m:s=>s.device==='mobile',
+        cond:'Quit on their phone', job:'Probably too slow or clunky on mobile. Offer a faster path, or nudge them to finish on desktop.', send:'within hours'},
+      {code:'S1b', a:'friction', m:s=>true,
+        cond:'Gave up partway', job:'They\u2019re one click from a finished deck. Email: \u201CFinish your prompt,\u201D and help them get there.', send:'within hours'}
+    ]
+  },
+  {
+    id:'S2', stage:'Deck created \u2192 Tried to pay', drop:'\u221220%', bodies:'\u2248 1,580 leave / day',
+    q:'Did they like it \u2014 or leave before the good part?', tag:null,
+    signals:[
+      {id:'export',l:'Tried to download / export?', def:'no', opts:[['no','No'],['yes','Yes']]},
+      {id:'decks', l:'How many free decks used?', def:'first', opts:[['first','Their 1st'],['second','Both (2nd one)']]},
+      {id:'viewed',l:'Watched the slideshow?', blind:true, def:'no', opts:[['no','No'],['yes','Yes']]},
+      {id:'dwell', l:'How long on the deck?', def:'short', opts:[['short','Quick look'],['long','Stuck around']]},
+      {id:'regen', l:'How many redos?', def:'zero', opts:[['zero','None'],['high','A lot']]}
+    ],
+    branches:[
+      {code:'S2d', a:'route', m:s=>s.export==='yes', route:'S3',
+        cond:'Tried to export', job:'They wanted the deck out \u2014 that\u2019s real buying intent. This person actually belongs in the next stage (hitting pay).', send:'\u2014'},
+      {code:'S2e', a:'satisfied', m:s=>s.decks==='second',
+        cond:'Used up both free decks', job:'Out of free decks and clearly getting value. Easiest sell you have: \u201CYou\u2019ve made 2 great decks \u2014 go unlimited.\u201D', send:'hours\u2013a day'},
+      {code:'S2c', a:'unconvinced', m:s=>s.regen==='high',
+        cond:'Kept redoing it', job:'The result wasn\u2019t good enough for them. Email: \u201CWe\u2019ve made it better \u2014 try a sharper prompt, or unlock better writing.\u201D Don\u2019t oversell.', send:'a day'},
+      {code:'S2a', a:'satisfied', m:s=>s.viewed==='yes'&&s.dwell==='long'&&s.regen==='zero', blind:true,
+        cond:'Watched it, liked it, left', job:'Happy and just done for now. Nudge them to download or share it \u2014 or remind them to come back next time. <b>Don\u2019t beg.</b>', send:'1\u20133 days'},
+      {code:'S2b', a:'unconvinced', m:s=>true, blind:true,
+        cond:'Left before seeing the good part', job:'They never watched the slideshow \u2014 the best bit. Bring them back to actually see their deck come alive.', send:'a day'}
+    ]
+  },
+  {
+    id:'S3', stage:'Hit pay \u2192 Reached checkout', drop:'\u221260%', bodies:'\u2248 3,200 leave / day',
+    q:'They wanted to pay. Why\u2019d they stop?', tag:{cls:'p0', t:'biggest leak'},
+    signals:[
+      {id:'trigger',l:'What made them hit pay?', blind:true, def:'export', opts:[['export','Tried to export (50%)'],['upgrade','Clicked upgrade (25%)'],['gate','Hit a locked feature (25%)']]},
+      {id:'device', l:'On what?', def:'desktop', opts:[['desktop','Desktop'],['mobile','Phone']]},
+      {id:'pricing',l:'Saw the pricing page?', blind:true, def:'yes', opts:[['yes','Yes'],['no','No']]},
+      {id:'pro',    l:'Looked at what Pro gives?', blind:true, def:'no', opts:[['no','No'],['yes','Yes']]}
+    ],
+    branches:[
+      {code:'S3b', a:'blocked', m:s=>s.device==='mobile'&&(s.trigger==='export'||s.trigger==='upgrade'), blind:true,
+        cond:'Wanted to pay, on a phone', job:'The big mobile drop \u2014 only ~1 in 10 make it through on phones. Send a direct checkout link, or nudge to desktop. But the real fix is making mobile checkout work; email is just a band-aid.', send:'within hours'},
+      {code:'S3c', a:'unconvinced', m:s=>s.trigger==='gate', blind:true,
+        cond:'Just bumped a locked feature', job:'They weren\u2019t really trying to buy \u2014 they just hit a wall. Go light, or send nothing. Maybe just show what Pro unlocks.', send:'1\u20132 days', hold:true},
+      {code:'S3a', a:'price', m:s=>s.trigger==='export'&&s.device==='desktop'&&s.pricing==='yes', blind:true,
+        cond:'Tried to export, saw price, stopped', job:'Your single best email. They were one click from getting their deck out. Remind them it\u2019s right there and why it\u2019s worth it \u2014 maybe a limited-time deal.', send:'within hours'},
+      {code:'S3d', a:'price', m:s=>s.trigger==='upgrade'&&s.pricing==='yes'&&s.pro==='yes', blind:true,
+        cond:'Clicked upgrade, compared plans, left', job:'They\u2019re weighing it. Answer the obvious doubts, make the plans clear, add some proof or a small nudge.', send:'hours\u2013a day'},
+      {code:'S3e', a:'unconvinced', m:s=>s.pricing==='yes'&&s.pro==='no', blind:true,
+        cond:'Saw the price but not the value', job:'They only found out Pro exists because they got blocked. Lead with what it does for them \u2014 not the price.', send:'a day'},
+      {code:'S3\u00B7', a:'unconvinced', m:s=>true, blind:true,
+        cond:'Not enough to go on', job:'Can\u2019t tell what they need yet. Send a gentle, value-first email \u2014 or just wait.', send:'a day', hold:true}
+    ]
+  },
+  {
+    id:'S4', stage:'At checkout \u2192 Paid', drop:'\u221297.5%', bodies:'\u2248 2,100 leave / day',
+    q:'They were on the payment screen. Why no payment?', tag:{cls:'blind', t:'can\u2019t see this yet'},
+    signals:[
+      {id:'outcome',l:'What happened at checkout?', blind:true, def:'declined', opts:[['declined','Payment failed'],['abandoned','They just left']]},
+      {id:'details',l:'Typed in card details?', blind:true, def:'no', opts:[['no','No'],['yes','Yes']]},
+      {id:'device', l:'On what?', def:'desktop', opts:[['desktop','Desktop'],['mobile','Phone']]},
+      {id:'method', l:'Paying how?', blind:true, def:'intl', opts:[['intl','Foreign card'],['india','UPI / Indian card']]}
+    ],
+    branches:[
+      {code:'S4d', a:'blocked', m:s=>s.outcome==='declined'&&s.device==='mobile', blind:true,
+        cond:'Payment failed, on a phone', job:'Almost certainly a UPI or card-verification glitch. Point them to a method that works, or to desktop.', send:'minutes\u2013hours'},
+      {code:'S4a', a:'blocked', m:s=>s.outcome==='declined', blind:true,
+        cond:'Payment failed', job:'Their payment didn\u2019t go through \u2014 that\u2019s not a \u201Cno.\u201D Email fast: \u201CTry again\u201D with a direct link, plus another way to pay. A lot of these are winnable.', send:'minutes\u2013hours'},
+      {code:'S4b', a:'price', m:s=>s.details==='yes', blind:true,
+        cond:'Typed their card, then bailed', job:'Cold feet at the last second. Reassure them \u2014 money-back, secure, here\u2019s what you get \u2014 with a gentle nudge.', send:'within hours'},
+      {code:'S4c', a:'price', m:s=>true, blind:true,
+        cond:'Saw the final price and left', job:'Sticker shock. Remind them what they\u2019re getting, and maybe a targeted offer.', send:'hours\u2013a day'}
+    ]
+  }
+];
+
+// readiness = how many branches can fire today (not blind)
+function readiness(st){
+  const blind = st.branches.filter(b=>b.blind).length;
+  const total = st.branches.length;
+  if(blind===0) return {t:'Ready', c:'var(--satisfied)'};
+  if(blind<total) return {t:'Partial', c:'var(--blocked)'};
+  return {t:'No data', c:'var(--price)'};
+}
+
+const sel = {};          // per-state selections
+let active = 'S0';
+
+/* ---------- legend ---------- */
+(function(){
+  const L = document.getElementById('legend');
+  ['blocked','satisfied','unconvinced','friction','price'].forEach(k=>{
+    const el=document.createElement('span'); el.className='lg';
+    el.innerHTML=`<span class="dot" style="background:var(--${k})"></span>${ARCH[k].label}`;
+    L.appendChild(el);
+  });
+  const b=document.createElement('span'); b.className='lg blind';
+  b.innerHTML=`<span class="wr">\u{1F527}</span>we don\u2019t track this yet`;
+  L.appendChild(b);
+})();
+
+/* ---------- ribbon ---------- */
+function buildRibbon(){
+  const R=document.getElementById('ribbon'); R.innerHTML='';
+  STATES.forEach((st,i)=>{
+    const b=document.createElement('button');
+    b.className='stage'; b.dataset.id=st.id;
+    b.setAttribute('aria-current', st.id===active);
+    const acc = st.tag ? (st.tag.cls==='p0'?'var(--blocked)':'var(--price)') : 'var(--line-bright)';
+    b.style.setProperty('--accent', acc);
+    const rd=readiness(st);
+    b.innerHTML=`
+      <div class="stage-top">
+        <span class="scode">${st.id}</span>
+        <span class="ready"><span class="rdot" style="background:${rd.c}"></span>${rd.t}</span>
+      </div>
+      <div class="sname">${st.stage}</div>
+      <div class="sdrop">${st.drop}</div>
+      <div class="sbodies">${st.bodies}</div>
+      ${st.tag?`<span class="stag ${st.tag.cls}">${st.tag.t}</span>`:''}`;
+    b.addEventListener('click',()=>{active=st.id; buildRibbon(); renderState();});
+    R.appendChild(b);
+    if(i<STATES.length-1){
+      const a=document.createElement('span'); a.className='arrow'; a.textContent='\u2192'; R.appendChild(a);
+    }
+  });
+}
+
+/* ---------- state panel ---------- */
+function curState(){ return STATES.find(s=>s.id===active); }
+function ensureSel(st){
+  if(!sel[st.id]){ sel[st.id]={}; st.signals.forEach(sg=>sel[st.id][sg.id]=sg.def); }
+}
+
+function renderState(){
+  const st=curState(); ensureSel(st);
+  document.getElementById('sim-stage').textContent=st.stage;
+  document.getElementById('sim-code').textContent=st.id;
+  document.getElementById('sim-q').textContent=st.q;
+
+  // signals
+  const S=document.getElementById('signals'); S.innerHTML='';
+  st.signals.forEach(sg=>{
+    const wrap=document.createElement('div'); wrap.className='sig';
+    const lab=document.createElement('div'); lab.className='sig-l';
+    lab.innerHTML=`${sg.l}${sg.blind?'<span class="wr" title="Not captured yet \u2014 routing here is hypothetical until instrumented">\u{1F527} blind</span>':''}`;
+    wrap.appendChild(lab);
+    const seg=document.createElement('div'); seg.className='seg';
+    sg.opts.forEach(([v,t])=>{
+      const btn=document.createElement('button');
+      btn.textContent=t; btn.setAttribute('aria-pressed', sel[st.id][sg.id]===v);
+      btn.addEventListener('click',()=>{ sel[st.id][sg.id]=v; renderState(); });
+      seg.appendChild(btn);
+    });
+    wrap.appendChild(seg); S.appendChild(wrap);
+  });
+
+  // overlay note
+  const NS=document.getElementById('note-slot'); NS.innerHTML='';
+  if(st.overlay){ const txt=st.overlay(sel[st.id]); if(txt){ const n=document.createElement('div'); n.className='note'; n.innerHTML=txt; NS.appendChild(n);} }
+
+  renderResult();
+}
+
+document.getElementById('reset').addEventListener('click',()=>{
+  const st=curState(); sel[st.id]={}; st.signals.forEach(sg=>sel[st.id][sg.id]=sg.def); renderState();
+});
+
+/* ---------- evaluate + result + ladder ---------- */
+function evaluate(st){
+  const s=sel[st.id];
+  for(const b of st.branches){ if(b.m(s)) return b; }
+  return st.branches[st.branches.length-1];
+}
+
+function setAccent(scope, a){
+  scope.style.setProperty('--ac', `var(--${a})`);
+  scope.style.setProperty('--ac-dim', `var(--${a}-dim)`);
+  scope.style.setProperty('--ac-bd', `var(--${a}-bd)`);
+}
+
+function renderResult(){
+  const st=curState(); const matched=evaluate(st);
+  const A=ARCH[matched.a];
+
+  // result banner
+  const R=document.getElementById('result'); setAccent(R, matched.a);
+  let flags='';
+  if(matched.blind) flags+='<span class="flag">\u{1F527} you don\u2019t track this yet</span>';
+  if(matched.hold)  flags+='<span class="flag hold">\u23F8 maybe send nothing</span>';
+  const meta = matched.a==='route'
+    ? `<div><span>Do this</span><b>go to ${matched.route}</b></div>`
+    : `<div><span>When to send</span><b>${matched.send}</b></div>
+       <div><span>How to play it</span><b>${A.note}</b></div>`;
+  R.innerHTML=`
+    <div class="res-top">
+      <span class="chip"><span class="dot" style="background:var(--${matched.a})"></span>${A.label}</span>
+      ${flags}
+      <span class="res-code">${matched.code}</span>
+    </div>
+    <div class="res-job-l">What to send</div>
+    <div class="res-job">${matched.job}</div>
+    <div class="res-meta">${meta}</div>
+    ${matched.route?`<button class="route-btn" id="jump">\u2192 go to ${matched.route}</button>`:''}`;
+  const jb=document.getElementById('jump');
+  if(jb) jb.addEventListener('click',()=>{ active=matched.route; buildRibbon(); renderState(); });
+
+  // ladder
+  const L=document.getElementById('ladder'); L.innerHTML='';
+  st.branches.forEach(b=>{
+    const on = b.code===matched.code;
+    const rung=document.createElement('div'); rung.className='rung'+(on?' on':'');
+    if(on) setAccent(rung, b.a);
+    let mini='';
+    if(b.blind) mini+='<span class="wr">\u{1F527}</span>';
+    if(b.hold)  mini+='<span class="hd">hold</span>';
+    rung.innerHTML=`
+      <div class="rung-top">
+        <span class="rcode">${b.code}</span>
+        <span class="dot" style="background:var(--${b.a})"></span>
+        <span class="rarch">${ARCH[b.a].label}</span>
+        <span class="rmini">${mini}</span>
+        <span class="lands">\u2190 they land here</span>
+      </div>
+      <span class="rcond">${b.cond}</span>
+      <div class="rjob">${b.job}</div>`;
+    L.appendChild(rung);
+  });
+}
+
+buildRibbon();
+renderState();
+</script>
+</body>
+</html>

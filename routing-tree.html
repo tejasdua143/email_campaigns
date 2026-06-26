@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Drop-off Decision Tree · Presentations.AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#0C0D10; --surface:#15171D; --surface-2:#1B1E26; --surface-3:#22262F;
+    --line:#2A2F3A; --line-bright:#3A414F;
+    --ink:#ECEEF2; --ink-2:#9AA1AE; --ink-3:#646B79;
+
+    --blocked:#FFB454;   --blocked-dim:rgba(255,180,84,.12);   --blocked-bd:rgba(255,180,84,.42);
+    --satisfied:#34D399; --satisfied-dim:rgba(52,211,153,.12); --satisfied-bd:rgba(52,211,153,.42);
+    --unconvinced:#60A5FA;--unconvinced-dim:rgba(96,165,250,.12);--unconvinced-bd:rgba(96,165,250,.42);
+    --friction:#A78BFA;  --friction-dim:rgba(167,139,250,.12); --friction-bd:rgba(167,139,250,.42);
+    --price:#F472B6;     --price-dim:rgba(244,114,182,.12);     --price-bd:rgba(244,114,182,.42);
+    --route:#67E8F9;     --route-dim:rgba(103,232,249,.10);     --route-bd:rgba(103,232,249,.38);
+    --blind:#8B94A6;
+
+    --sans:'Space Grotesk',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1100px 560px at 85% -10%, rgba(96,165,250,.06), transparent 60%),
+      radial-gradient(800px 480px at -5% 110%, rgba(167,139,250,.05), transparent 60%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased;
+    line-height:1.5; padding:28px clamp(14px,4vw,40px) 60px;
+  }
+  .wrap{max-width:980px;margin:0 auto}
+
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+  h1{font-size:clamp(25px,4vw,36px);font-weight:600;letter-spacing:-.02em;margin:0 0 8px}
+  .sub{color:var(--ink-2);max-width:64ch;font-size:15px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .lg{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;border:1px solid var(--line);
+    border-radius:999px;background:var(--surface);font-size:12px;color:var(--ink-2)}
+  .lg.blind{border-style:dashed;border-color:var(--line-bright)}
+  .lg .wr{font-size:11px;color:var(--blind)}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 4px;align-items:center}
+  .tbtn{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:7px 12px;cursor:pointer;transition:all .15s}
+  .tbtn:hover{border-color:var(--line-bright);color:var(--ink)}
+  .tbtn[aria-pressed="true"]{background:var(--surface-3);color:var(--ink);border-color:var(--line-bright)}
+  .tbtn:focus-visible{outline:2px solid var(--unconvinced);outline-offset:1px}
+  .tip{font-size:12px;color:var(--ink-3);margin-left:auto;font-family:var(--mono)}
+
+  /* ---- tree ---- */
+  .spine{margin-top:26px}
+  .row{display:flex;align-items:stretch}
+  .rail{flex:none;width:38px;position:relative}
+  .rail::before{content:"";position:absolute;left:18px;top:0;bottom:0;width:2px;background:var(--line)}
+  .row.is-start .rail::before{top:50%;bottom:0}
+  .row.is-end .rail::before{top:0;height:50%}
+  .ndot{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;border-radius:50%;
+    background:var(--surface);border:2px solid var(--ink-3);z-index:1}
+  .ndot.start{border-color:var(--ink-2)}
+  .ndot.end{border-color:var(--satisfied);background:var(--satisfied-dim)}
+  .ndot.s-p0{border-color:var(--blocked)}
+  .ndot.s-blind{border-color:var(--price);border-style:dashed}
+  .elbow{position:absolute;left:19px;top:50%;width:19px;height:2px;background:var(--line)}
+
+  .content{flex:1;min-width:0;padding:7px 0 7px 6px}
+
+  /* node + stage headers */
+  .node-h{font-size:14px;font-weight:600;color:var(--ink)}
+  .node-s{font-size:12px;color:var(--ink-3);font-family:var(--mono)}
+  .row.is-start .content,.row.is-end .content{padding:14px 0 14px 6px}
+
+  .stage-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;user-select:none;
+    padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface);transition:border-color .15s,background .15s}
+  .stage-h:hover{border-color:var(--line-bright);background:var(--surface-2)}
+  .caret{font-size:10px;color:var(--ink-3);transition:transform .18s}
+  .stage-h.is-collapsed .caret{transform:rotate(-90deg)}
+  .scode{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--ink-2)}
+  .sq{font-size:15px;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+  .sdrop{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ink-2);margin-left:2px}
+  .sbodies{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+  .ready{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);
+    letter-spacing:.04em;color:var(--ink-3);text-transform:uppercase}
+  .ready .rd{width:7px;height:7px;border-radius:50%}
+  .stag{font-size:10px;font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px}
+  .stag.p0{background:rgba(255,180,84,.14);color:var(--blocked);border:1px solid var(--blocked-bd)}
+  .stag.blind{background:rgba(139,148,166,.12);color:var(--blind);border:1px solid var(--line-bright);border-style:dashed}
+  .snote{margin:8px 0 0;font-size:12px;color:var(--ink-2);border-left:2px solid var(--blocked-bd);
+    background:var(--blocked-dim);border-radius:0 7px 7px 0;padding:7px 10px}
+  .snote b{color:var(--blocked)}
+
+  /* branch cards */
+  .card{border:1px solid var(--line);border-left:3px solid var(--ac,var(--line-bright));border-radius:10px;
+    background:linear-gradient(180deg,var(--acd,transparent),transparent 160%);padding:10px 12px;transition:transform .15s,border-color .15s}
+  .branch:hover .card{transform:translateX(2px);border-color:var(--acb,var(--line-bright))}
+  .a-blocked{--ac:var(--blocked);--acd:var(--blocked-dim);--acb:var(--blocked-bd)}
+  .a-satisfied{--ac:var(--satisfied);--acd:var(--satisfied-dim);--acb:var(--satisfied-bd)}
+  .a-unconvinced{--ac:var(--unconvinced);--acd:var(--unconvinced-dim);--acb:var(--unconvinced-bd)}
+  .a-friction{--ac:var(--friction);--acd:var(--friction-dim);--acb:var(--friction-bd)}
+  .a-price{--ac:var(--price);--acd:var(--price-dim);--acb:var(--price-bd)}
+  .a-route{--ac:var(--route);--acd:var(--route-dim);--acb:var(--route-bd)}
+
+  .card-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .who{font-size:13.5px;font-weight:600;color:var(--ink)}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px;
+    border-radius:999px;border:1px solid var(--acb,var(--line));background:var(--acd);color:var(--ac)}
+  .flag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);padding:2px 7px;
+    border-radius:6px;border:1px dashed var(--line-bright);color:var(--blind)}
+  .flag.hold{border-style:solid;color:var(--ink-2)}
+  .bcode{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-left:auto}
+
+  .detail{margin-top:8px;font-size:12.5px;color:var(--ink-2);line-height:1.5}
+  .detail .arrow{color:var(--ac);font-weight:700;margin-right:4px}
+  .when{display:inline-block;margin-top:6px;font-family:var(--mono);font-size:10px;color:var(--ink-3);
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+  body[data-details="off"] .detail{display:none}
+
+  /* route branch */
+  .reroute{margin-top:7px;font-family:var(--mono);font-size:11px;color:var(--route);
+    background:var(--route-dim);border:1px solid var(--route-bd);border-radius:7px;padding:5px 9px;display:inline-block}
+
+  /* flow ("the rest move on") */
+  .row.flow .content{padding:3px 0 3px 6px}
+  .flow-l{font-size:11px;color:var(--ink-3);font-family:var(--mono);letter-spacing:.02em}
+  .chev{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--ink-3);font-size:10px;
+    background:var(--bg);padding:1px 0}
+
+  body[data-dim="on"] .branch.blind{opacity:.32}
+
+  footer{margin-top:34px;border-top:1px solid var(--line);padding-top:18px;color:var(--ink-3);font-size:12px;line-height:1.7}
+  footer b{color:var(--ink-2);font-weight:500}
+  footer .mono{font-family:var(--mono)}
+
+  @media(max-width:640px){
+    .rail{width:30px}
+    .rail::before{left:14px}.ndot{left:7px}.elbow{left:15px;width:14px}.chev{left:10px}
+    .who{font-size:13px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body data-details="on" data-dim="off">
+<div class="wrap">
+
+  <div class="eyebrow">Presentations.AI · the whole logic, one map</div>
+  <h1>Drop-off Decision Tree</h1>
+  <p class="sub">The straight line down is the path to paying. Every branch off it is a group that drops at that step — and what to send them. Read it top to bottom.</p>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="toolbar">
+    <button class="tbtn" id="t-details" aria-pressed="true">Details: on</button>
+    <button class="tbtn" id="t-dim" aria-pressed="false">Dim what we can't track</button>
+    <span class="tip">tip: click a step to fold its branches</span>
+  </div>
+
+  <div class="spine" id="spine"></div>
+
+  <footer>
+    <div><b>Straight line</b> = made it through to paying &nbsp;·&nbsp; <b>branches</b> = where people fall out &nbsp;·&nbsp; the dot color is who they are.</div>
+    <div><span class="mono">🔧</span> <b>= we don't track this yet</b>, so that branch can't run until we add it. &nbsp; <b>"hold"</b> = the best move may be no email.</div>
+  </footer>
+</div>
+
+<script>
+const ARCH = {
+  blocked:    {label:'Something broke'},
+  satisfied:  {label:'Happy, just done'},
+  unconvinced:{label:'Not sold yet'},
+  friction:   {label:'Stuck, but wanted in'},
+  price:      {label:'Balked at the price'},
+  route:      {label:'Goes to next step'}
+};
+
+const STATES = [
+  {id:'S0', q:'Did they even start a deck?', drop:'−10%', bodies:'≈ 1,000/day', tag:null,
+   note:'Students and teachers usually finish this step (<b>~90%</b>). If one stops here, something probably broke — they didn’t just lose interest.',
+   branches:[
+     {code:'S0c', a:'friction', cond:'Started typing, then quit',
+       job:'They were trying — your best shot at winning them back. Email: “Pick up where you left off,” and help them finish the prompt.', send:'within hours'},
+     {code:'S0b', a:'friction', cond:'Looked around, never started',
+       job:'They froze at the blank page. Hand them a few ready-made prompts or templates so they don’t have to start from scratch.', send:'hours–a day'},
+     {code:'S0a', a:'unconvinced', cond:'Left right away, did nothing',
+       job:'Show them what they could make in under a minute, one tap to start from a template. Keep it light — send once, then leave them alone.', send:'1–2 days', hold:true}
+   ]},
+
+  {id:'S1', q:'Did a deck actually get made?', drop:'−12%', bodies:'≈ 1,060/day', tag:null,
+   branches:[
+     {code:'S1a', a:'blocked', cond:'It broke on them', blind:true,
+       job:'Not their fault — the deck failed to generate. Email fast: “Sorry, here it is now,” with a link to try again. Biggest payoff here, since they really wanted it.', send:'minutes–hours'},
+     {code:'S1c', a:'blocked', cond:'Quit on their phone',
+       job:'Probably too slow or clunky on mobile. Offer a faster path, or nudge them to finish on desktop.', send:'within hours'},
+     {code:'S1b', a:'friction', cond:'Gave up partway',
+       job:'They’re one click from a finished deck. Email: “Finish your prompt,” and help them get there.', send:'within hours'}
+   ]},
+
+  {id:'S2', q:'Did they like it — or leave before the good part?', drop:'−20%', bodies:'≈ 1,580/day', tag:null,
+   branches:[
+     {code:'S2d', a:'route', cond:'Tried to export', route:'S3',
+       job:'They wanted the deck out — that’s real buying intent. This person actually belongs in the next stage (hitting pay).', send:'—'},
+     {code:'S2e', a:'satisfied', cond:'Used up both free decks',
+       job:'Out of free decks and clearly getting value. Easiest sell you have: “You’ve made 2 great decks — go unlimited.”', send:'hours–a day'},
+     {code:'S2c', a:'unconvinced', cond:'Kept redoing it',
+       job:'The result wasn’t good enough for them. Email: “We’ve made it better — try a sharper prompt, or unlock better writing.” Don’t oversell.', send:'a day'},
+     {code:'S2a', a:'satisfied', cond:'Watched it, liked it, left', blind:true,
+       job:'Happy and just done for now. Nudge them to download or share it — or remind them to come back next time. Don’t beg.', send:'1–3 days'},
+     {code:'S2b', a:'unconvinced', cond:'Left before seeing the good part', blind:true,
+       job:'They never watched the slideshow — the best bit. Bring them back to actually see their deck come alive.', send:'a day'}
+   ]},
+
+  {id:'S3', q:'They wanted to pay. Why’d they stop?', drop:'−60%', bodies:'≈ 3,200/day', tag:{cls:'p0', t:'biggest leak'},
+   branches:[
+     {code:'S3b', a:'blocked', cond:'Wanted to pay, on a phone', blind:true,
+       job:'The big mobile drop — only ~1 in 10 make it through on phones. Send a direct checkout link, or nudge to desktop. But the real fix is making mobile checkout work; email is just a band-aid.', send:'within hours'},
+     {code:'S3c', a:'unconvinced', cond:'Just bumped a locked feature', blind:true,
+       job:'They weren’t really trying to buy — they just hit a wall. Go light, or send nothing. Maybe just show what Pro unlocks.', send:'1–2 days', hold:true},
+     {code:'S3a', a:'price', cond:'Tried to export, saw price, stopped', blind:true,
+       job:'Your single best email. They were one click from getting their deck out. Remind them it’s right there and why it’s worth it — maybe a limited-time deal.', send:'within hours'},
+     {code:'S3d', a:'price', cond:'Clicked upgrade, compared plans, left', blind:true,
+       job:'They’re weighing it. Answer the obvious doubts, make the plans clear, add some proof or a small nudge.', send:'hours–a day'},
+     {code:'S3e', a:'unconvinced', cond:'Saw the price but not the value', blind:true,
+       job:'They only found out Pro exists because they got blocked. Lead with what it does for them — not the price.', send:'a day'},
+     {code:'S3·', a:'unconvinced', cond:'Not enough to go on', blind:true,
+       job:'Can’t tell what they need yet. Send a gentle, value-first email — or just wait.', send:'a day', hold:true}
+   ]},
+
+  {id:'S4', q:'They were on the payment screen. Why no payment?', drop:'−97.5%', bodies:'≈ 2,100/day', tag:{cls:'blind', t:'can’t see this yet'},
+   branches:[
+     {code:'S4d', a:'blocked', cond:'Payment failed, on a phone', blind:true,
+       job:'Almost certainly a UPI or card-verification glitch. Point them to a method that works, or to desktop.', send:'minutes–hours'},
+     {code:'S4a', a:'blocked', cond:'Payment failed', blind:true,
+       job:'Their payment didn’t go through — that’s not a “no.” Email fast: “Try again” with a direct link, plus another way to pay. A lot of these are winnable.', send:'minutes–hours'},
+     {code:'S4b', a:'price', cond:'Typed their card, then bailed', blind:true,
+       job:'Cold feet at the last second. Reassure them — money-back, secure, here’s what you get — with a gentle nudge.', send:'within hours'},
+     {code:'S4c', a:'price', cond:'Saw the final price and left', blind:true,
+       job:'Sticker shock. Remind them what they’re getting, and maybe a targeted offer.', send:'hours–a day'}
+   ]}
+];
+
+function readiness(st){
+  const blind=st.branches.filter(b=>b.blind).length, total=st.branches.length;
+  if(!blind) return {t:'Ready', c:'var(--satisfied)'};
+  if(blind<total) return {t:'Partial', c:'var(--blocked)'};
+  return {t:'No data', c:'var(--price)'};
+}
+
+/* legend */
+(function(){
+  const L=document.getElementById('legend');
+  ['blocked','satisfied','unconvinced','friction','price'].forEach(k=>{
+    const e=document.createElement('span'); e.className='lg';
+    e.innerHTML=`<span class="dot" style="background:var(--${k})"></span>${ARCH[k].label}`;
+    L.appendChild(e);
+  });
+  const b=document.createElement('span'); b.className='lg blind';
+  b.innerHTML=`<span class="wr">🔧</span>we don’t track this yet`; L.appendChild(b);
+})();
+
+/* render tree */
+function row(cls){ const d=document.createElement('div'); d.className='row '+cls; return d; }
+
+function nodeRow(kind,label,sub){
+  const r=row(kind==='start'?'is-start':'is-end');
+  r.innerHTML=`<div class="rail"><span class="ndot ${kind}"></span></div>
+    <div class="content"><div class="node-h">${label}</div><div class="node-s">${sub}</div></div>`;
+  return r;
+}
+
+function build(){
+  const S=document.getElementById('spine'); S.innerHTML='';
+  S.appendChild(nodeRow('start','Visitor arrives','top of funnel'));
+
+  STATES.forEach((st,i)=>{
+    const rd=readiness(st);
+    const dotCls = st.tag ? (st.tag.cls==='p0'?'s-p0':'s-blind') : '';
+    // stage header
+    const h=row('stage'); h.dataset.stage=i;
+    h.innerHTML=`<div class="rail"><span class="ndot ${dotCls}"></span></div>
+      <div class="content">
+        <div class="stage-h" role="button" tabindex="0">
+          <span class="caret">▾</span>
+          <span class="scode">${st.id}</span>
+          <span class="sq">${st.q}</span>
+          <span class="sdrop">${st.drop}</span>
+          <span class="sbodies">${st.bodies}</span>
+          <span class="ready"><span class="rd" style="background:${rd.c}"></span>${rd.t}</span>
+          ${st.tag?`<span class="stag ${st.tag.cls}">${st.tag.t}</span>`:''}
+        </div>
+        ${st.note?`<div class="snote collapsible-note">${st.note}</div>`:''}
+      </div>`;
+    S.appendChild(h);
+
+    // branches
+    st.branches.forEach(b=>{
+      const r=row('branch collapsible a-'+b.a+(b.blind?' blind':'')); r.dataset.stage=i;
+      let flags='';
+      if(b.blind) flags+='<span class="flag">🔧 not tracked</span>';
+      if(b.hold)  flags+='<span class="flag hold">⏸ hold</span>';
+      const detail = b.route
+        ? `<div class="detail"><span class="arrow">→</span>${b.job}</div><span class="reroute">↻ continues into ${b.route}</span>`
+        : `<div class="detail"><span class="arrow">→</span>${b.job}<br><span class="when">when: ${b.send}</span></div>`;
+      r.innerHTML=`<div class="rail"><span class="elbow"></span></div>
+        <div class="content">
+          <div class="card a-${b.a}">
+            <div class="card-top">
+              <span class="who">${b.cond}</span>
+              <span class="chip"><span class="dot" style="background:var(--${b.a})"></span>${ARCH[b.a].label}</span>
+              ${flags}
+              <span class="bcode">${b.code}</span>
+            </div>
+            ${detail}
+          </div>
+        </div>`;
+      S.appendChild(r);
+    });
+
+    // "the rest move on"
+    const f=row('flow collapsible'); f.dataset.stage=i;
+    const next = i<STATES.length-1 ? 'the rest move on ↓' : 'the rest make it through ↓';
+    f.innerHTML=`<div class="rail"><span class="chev">▼</span></div>
+      <div class="content"><span class="flow-l">${next}</span></div>`;
+    S.appendChild(f);
+  });
+
+  S.appendChild(nodeRow('end','Paid 🎉','goal'));
+
+  // collapse handlers
+  S.querySelectorAll('.stage-h').forEach(h=>{
+    const toggle=()=>{
+      const i=h.closest('.row').dataset.stage;
+      const c=h.classList.toggle('is-collapsed');
+      S.querySelectorAll(`.row.collapsible[data-stage="${i}"]`).forEach(r=> r.style.display=c?'none':'flex');
+      const note=h.parentElement.querySelector('.collapsible-note');
+      if(note) note.style.display=c?'none':'block';
+    };
+    h.addEventListener('click',toggle);
+    h.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();} });
+  });
+}
+
+/* toolbar */
+const td=document.getElementById('t-details');
+td.addEventListener('click',()=>{
+  const on = document.body.getAttribute('data-details')==='on';
+  document.body.setAttribute('data-details', on?'off':'on');
+  td.setAttribute('aria-pressed', String(!on)); td.textContent='Details: '+(on?'off':'on');
+});
+const tm=document.getElementById('t-dim');
+tm.addEventListener('click',()=>{
+  const on = document.body.getAttribute('data-dim')==='on';
+  document.body.setAttribute('data-dim', on?'off':'on');
+  tm.setAttribute('aria-pressed', String(!on));
+});
+
+build();
+</script>
+</body>
+</html>
