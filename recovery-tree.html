@@ -253,6 +253,7 @@ let path=[]; // [{nodeId, idx}]
 const tree=document.getElementById('tree');
 const restart=document.getElementById('restart');
 
+restart.addEventListener('click',()=>{ path=[]; render(); });
 function choose(level, idx){ path=path.slice(0,level); path.push({nodeId:nodeAtLevel(level), idx}); render(); }
 function nodeAtLevel(level){
   let id='root';
